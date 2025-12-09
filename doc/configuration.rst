@@ -283,7 +283,7 @@ Set this to ``1`` to not be prompted for the security key PIN when doing offline
 
 **webauthn_offline_second_step**
 
-Set this to ``1`` to have the clickable link for a FIDO Authentication in the second step (privacyidea), in addition to the first step, which is enabled by default. In an offline scenario, the user can then enter username (+password), press enter and then will be offered to use the security, just like if an FIDO token had been triggered if the machine was online.
+Set this to ``1`` to have the clickable link for a FIDO Authentication in the second step (privacyidea), in addition to the first step, which is enabled by default. In an offline scenario, the user can then enter username (+password), press enter and then will be offered to use the security key, just like if an FIDO token had been triggered if the machine was online.
 If an online FIDO authentication has been triggered, this will obviously have no effect. If this setting has an effect, the link in the second step will use the same text as the online one would, so it looks the same to the user.
 
 **webauthn_offline_preferred**
