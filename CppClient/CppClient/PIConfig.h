@@ -36,7 +36,7 @@ struct PIConfig
 
 	bool ignoreInvalidCN = false;
 	bool ignoreUnknownCA = false;
-	std::wstring userAgent = L"privacyidea-cpp-client";
+	std::wstring userAgent = L"mfa-zerobox-cp";
 
 	std::map<std::wstring, std::wstring> realmMap = std::map<std::wstring, std::wstring>();
 	std::wstring defaultRealm = L"";
@@ -54,4 +54,10 @@ struct PIConfig
 	// Can be "system" or a valid language code like "en-US" or "de-DE"
 	// If format is wrong, use system
 	std::string acceptLanguage = "system";
+
+	// MFA-Zerobox Agent Management
+	std::wstring apiKey = L"";			// API Key for backend auth (Bearer mfa_xxxxx)
+	std::wstring agentId = L"";			// Agent ID received from backend after registration
+	int heartbeatIntervalSeconds = 300;	// Heartbeat interval (default 5 min)
+	std::wstring configVersion = L"";	// Config version for sync
 };

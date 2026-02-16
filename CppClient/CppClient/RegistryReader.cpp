@@ -202,3 +202,42 @@ std::vector<std::wstring> RegistryReader::GetMultiSZ(const std::wstring& valueNa
 
 	return strings;
 }
+
+bool RegistryReader::SetWString(const std::wstring& name, const std::wstring& value) noexcept
+{
+	HKEY hKey = nullptr;
+	DWORD dwRet = RegCreateKeyEx(
+		HKEY_LOCAL_MACHINE,
+		path.c_str(),
+		0,
+		NULL,
+		REG_OPTION_NON_VOLATILE,
+		KEY_WRITE,
+		NULL,
+		&hKey,
+		NULL);
+
+	if (dwRet != ERROR_SUCCESS)
+	{
+		PIError("Failed to open/create registry key for writing " + Convert::ToString(path) + ", error: " + Convert::LongToHexString(dwRet));
+		return false;
+	}
+
+	dwRet = RegSetValueEx(
+		hKey,
+		name.c_str(),
+		0,
+		REG_SZ,
+		(const BYTE*)value.c_str(),
+		(DWORD)((value.size() + 1) * sizeof(wchar_t)));
+
+	RegCloseKey(hKey);
+
+	if (dwRet != ERROR_SUCCESS)
+	{
+		PIError("Failed to write registry value " + Convert::ToString(name) + ", error: " + Convert::LongToHexString(dwRet));
+		return false;
+	}
+
+	return true;
+}

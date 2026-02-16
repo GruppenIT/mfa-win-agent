@@ -32,6 +32,7 @@
 #include <tchar.h>
 #include <Wtsapi32.h>
 #include <Lm.h>
+#include <thread>
 
 CProvider::CProvider() :
 	_cRef(1),
@@ -41,10 +42,24 @@ CProvider::CProvider() :
 	_config = std::make_shared<Configuration>();
 	_config->Load();
 	Logger::Get().logDebug = _config->debugLog;
+
+	// Initialize and start agent management (registration, heartbeat, config sync)
+	// This runs in a background thread to avoid blocking the login UI
+	if (!_config->piconfig.apiKey.empty())
+	{
+		_agentManager = std::make_unique<AgentManager>(_config->piconfig);
+		std::thread([this]() {
+			_agentManager->OnStartup();
+		}).detach();
+	}
 }
 
 CProvider::~CProvider()
 {
+	if (_agentManager)
+	{
+		_agentManager->StopHeartbeatThread();
+	}
 	if (_credential != NULL)
 	{
 		PIDebug("CProvider destructor - releasing credential");

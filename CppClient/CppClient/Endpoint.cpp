@@ -17,7 +17,7 @@
 **
 ** * * * * * * * * * * * * * * * * * * */
 
-#include "PrivacyIDEA.h"
+#include "MFAClient.h"
 #include "Endpoint.h"
 #include "Logger.h"
 #include "Convert.h"

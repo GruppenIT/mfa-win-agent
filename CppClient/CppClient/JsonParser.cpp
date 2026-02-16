@@ -57,10 +57,10 @@ void ParseVersionString(const std::string& version, PIResponse& response)
 		else
 			suffix.clear();
 	}
-	response.privacyIDEAVersionMajor = major;
-	response.privacyIDEAVersionMinor = minor;
-	response.privacyIDEAVersionPatch = patch;
-	response.privacyIDEAVersionSuffix = suffix;
+	response.serverVersionMajor = major;
+	response.serverVersionMinor = minor;
+	response.serverVersionPatch = patch;
+	response.serverVersionSuffix = suffix;
 }
 
 int GetIntOrZero(json& input, string fieldName)
@@ -315,9 +315,9 @@ HRESULT JsonParser::ParseResponse(std::string serverResponse, PIResponse& respon
 	{
 		ParseVersionString(jRoot["versionnumber"].get<std::string>(), response);
 		PIDebug("Parsed version: " + 
-			std::to_string(response.privacyIDEAVersionMajor) + "." +
-			std::to_string(response.privacyIDEAVersionMinor) + "." +
-			std::to_string(response.privacyIDEAVersionPatch) + response.privacyIDEAVersionSuffix);
+			std::to_string(response.serverVersionMajor) + "." +
+			std::to_string(response.serverVersionMinor) + "." +
+			std::to_string(response.serverVersionPatch) + response.serverVersionSuffix);
 	}
 
 	return S_OK;

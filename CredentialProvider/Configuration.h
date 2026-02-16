@@ -49,7 +49,7 @@ public:
 			case Mode::USERNAME:						return "USERNAME";
 			case Mode::PASSWORD:						return "PASSWORD";
 			case Mode::USERNAMEPASSWORD:				return "USERNAMEPASSWORD";
-			case Mode::PRIVACYIDEA:						return "PRIVACYIDEA";
+			case Mode::MFA_OTP:							return "MFA_OTP";
 			case Mode::SEC_KEY_ANY:						return "SEC_KEY_ANY";
 			case Mode::PASSKEY:							return "PASSKEY";
 			case Mode::SEC_KEY_REG:						return "SEC_KEY_REG";
@@ -143,7 +143,7 @@ public:
 	std::wstring exludedGroupNetBIOSaddress = L"";
 
 	bool clearFields = true;
-	bool bypassPrivacyIDEA = false;
+	bool bypassMFA = false;
 
 	int offlineTreshold = 20;
 	bool offlineShowInfo = true;

@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace privacyidea
+namespace mfazerobox
 {
 	struct StoredWebAuthnCredential
 	{

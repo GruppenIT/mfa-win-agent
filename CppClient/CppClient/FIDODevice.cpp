@@ -24,7 +24,7 @@
 #include "Convert.h"
 #include "FIDODevice.h"
 #include "Logger.h"
-#include "PrivacyIDEA.h"
+#include "MFAClient.h"
 #include "FIDOException.h"
 #include "FIDORegistrationResponse.h"
 

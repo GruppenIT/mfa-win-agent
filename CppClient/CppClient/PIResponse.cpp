@@ -142,19 +142,19 @@ std::string PIResponse::GetNonFIDOMessage()
 
 bool PIResponse::IsVersionHigherOrEqual(int major, int minor, int patch) const
 {
-	if (privacyIDEAVersionMajor > major)
+	if (serverVersionMajor > major)
 	{
 		return true;
 	}
-	else if (privacyIDEAVersionMajor == major)
+	else if (serverVersionMajor == major)
 	{
-		if (privacyIDEAVersionMinor > minor)
+		if (serverVersionMinor > minor)
 		{
 			return true;
 		}
-		else if (privacyIDEAVersionMinor == minor)
+		else if (serverVersionMinor == minor)
 		{
-			return privacyIDEAVersionPatch >= patch;
+			return serverVersionPatch >= patch;
 		}
 	}
 	return false;

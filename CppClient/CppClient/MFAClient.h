@@ -41,16 +41,16 @@ constexpr auto PI_ENDPOINT_VALIDATE_INITIALIZE = "/validate/initialize";
 
 constexpr auto PI_ERR_AUTH_FAILED = 0x88809099;
 
-class PrivacyIDEA
+class MFAClient
 {
 public:
-	PrivacyIDEA(const PIConfig& config) :
+	MFAClient(const PIConfig& config) :
 		_config(config),
 		_endpoint(config),
 		offlineHandler(config.offlineFilePath, config.offlineTryWindow)
 	{};
 
-	PrivacyIDEA& operator=(const PrivacyIDEA& privacyIDEA) = delete;
+	MFAClient& operator=(const MFAClient&) = delete;
 
 	/// <summary>
 	/// Authenticate using the /validate/check endpoint. The server response is written to responseObj.
