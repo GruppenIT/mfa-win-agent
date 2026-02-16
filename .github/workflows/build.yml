@@ -1,0 +1,150 @@
+name: Build MSI
+
+on:
+  push:
+    branches: [ main, develop, 'release/**' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+
+env:
+  SOLUTION_FILE: MFA-Zerobox-CredentialProvider.sln
+  PLATFORM: x64
+  CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+  # libfido2 prebuilt archive - upload as a GitHub Release asset in this repo
+  # or change this URL to where your NFC-enabled build is hosted
+  LIBFIDO2_VERSION: "1.15.0"
+  NLOHMANN_JSON_VERSION: "3.11.3"
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Dependencies ──────────────────────────────────────────────
+
+      - name: Download nlohmann/json
+        shell: pwsh
+        run: |
+          $dest = "CppClient\nlohmann\x64\include\nlohmann"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $url = "https://github.com/nlohmann/json/releases/download/v${{ env.NLOHMANN_JSON_VERSION }}/json.hpp"
+          Invoke-WebRequest -Uri $url -OutFile "$dest\json.hpp"
+          Write-Host "Downloaded nlohmann/json.hpp to $dest"
+
+      - name: Download libfido2 (NFC-enabled)
+        shell: pwsh
+        run: |
+          # Option 1: Download from a GitHub Release asset in THIS repo
+          # Requires you to upload libfido2-1.15.0-nfc-enabled.zip as a release asset
+          $tag = "deps-v1"
+          $asset = "libfido2-${{ env.LIBFIDO2_VERSION }}-nfc-enabled.zip"
+          try {
+            $url = "https://github.com/${{ github.repository }}/releases/download/$tag/$asset"
+            Write-Host "Trying to download libfido2 from: $url"
+            Invoke-WebRequest -Uri $url -OutFile "libfido2.zip"
+            Expand-Archive -Path "libfido2.zip" -DestinationPath "." -Force
+            Remove-Item "libfido2.zip"
+            Write-Host "libfido2 extracted successfully"
+          }
+          catch {
+            Write-Host "::warning::Could not download libfido2 from release assets."
+            Write-Host "::warning::Please upload '$asset' as a release asset with tag '$tag'."
+            Write-Host "::warning::See README for instructions on building libfido2 with NFC support."
+            exit 1
+          }
+
+          # Verify expected structure
+          if (-not (Test-Path "libfido2-${{ env.LIBFIDO2_VERSION }}-nfc-enabled\include\fido.h")) {
+            Write-Host "::error::libfido2 archive missing expected include/fido.h"
+            exit 1
+          }
+          if (-not (Test-Path "libfido2-${{ env.LIBFIDO2_VERSION }}-nfc-enabled\static\fido2.lib")) {
+            Write-Host "::error::libfido2 archive missing expected static/fido2.lib"
+            exit 1
+          }
+          Write-Host "libfido2 dependency verified"
+
+      - name: Copy VC++ Merge Modules
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          $msmPath = Get-ChildItem -Path "$vsPath\VC\Redist\MSVC" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          $msmDir = "$($msmPath.FullName)\MergeModules"
+
+          New-Item -ItemType Directory -Force -Path "lib\merge" | Out-Null
+
+          # Copy the merge modules needed by WiXSetup/Product.wxs
+          $modules = @(
+            "Microsoft_VC143_CRT_x64.msm",
+            "Microsoft_VC143_CRT_x86.msm",
+            "Microsoft_VC143_DebugCRT_x64.msm",
+            "Microsoft_VC143_DebugCRT_x86.msm"
+          )
+
+          foreach ($mod in $modules) {
+            $src = Join-Path $msmDir $mod
+            if (Test-Path $src) {
+              Copy-Item $src "lib\merge\"
+              Write-Host "Copied $mod"
+            } else {
+              Write-Host "::warning::Merge module not found: $src"
+            }
+          }
+
+      # ── Build ─────────────────────────────────────────────────────
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          choco install wixtoolset -y --version=3.14.1
+          # Add WiX to PATH for MSBuild
+          $wixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          if (Test-Path $wixPath) {
+            echo "$wixPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "WiX Toolset added to PATH: $wixPath"
+          }
+
+      - name: Build Solution
+        run: |
+          msbuild ${{ env.SOLUTION_FILE }} `
+            /p:Configuration=${{ env.CONFIGURATION }} `
+            /p:Platform=${{ env.PLATFORM }} `
+            /m `
+            /verbosity:minimal
+
+      # ── Artifacts ─────────────────────────────────────────────────
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: MFAZeroboxCredentialProvider-${{ env.CONFIGURATION }}-${{ env.PLATFORM }}
+          path: WiXSetup/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.msi
+          if-no-files-found: error
+
+      - name: Upload DLLs (for debugging)
+        if: ${{ env.CONFIGURATION == 'Debug' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DLLs-Debug-${{ env.PLATFORM }}
+          path: |
+            CredentialProvider/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.dll
+            CredentialProvider/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.pdb
+            CredentialProviderFilter/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.dll
