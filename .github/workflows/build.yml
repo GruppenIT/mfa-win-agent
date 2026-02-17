@@ -2,9 +2,9 @@ name: Build MSI
 
 on:
   push:
-    branches: [ main, develop, 'release/**' ]
+    branches: [ master, main, develop, 'release/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ master, main ]
   workflow_dispatch:
     inputs:
       configuration:
