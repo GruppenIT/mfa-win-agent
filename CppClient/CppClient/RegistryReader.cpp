@@ -242,9 +242,10 @@ bool RegistryReader::SetWString(const std::wstring& name, const std::wstring& va
 	return true;
 }
 
-bool RegistryReader::SetDword(const std::wstring& name, DWORD value) noexcept
+bool RegistryReader::SetDword(const std::wstring& name, unsigned long value) noexcept
 {
 	HKEY hKey = nullptr;
+	DWORD dwDisposition = 0;
 	DWORD dwRet = RegCreateKeyEx(
 		HKEY_LOCAL_MACHINE,
 		path.c_str(),
@@ -254,7 +255,7 @@ bool RegistryReader::SetDword(const std::wstring& name, DWORD value) noexcept
 		KEY_WRITE,
 		NULL,
 		&hKey,
-		NULL);
+		&dwDisposition);
 
 	if (dwRet != ERROR_SUCCESS)
 	{
@@ -262,12 +263,13 @@ bool RegistryReader::SetDword(const std::wstring& name, DWORD value) noexcept
 		return false;
 	}
 
+	DWORD dwValue = value;
 	dwRet = RegSetValueEx(
 		hKey,
 		name.c_str(),
 		0,
 		REG_DWORD,
-		(const BYTE*)&value,
+		(const BYTE*)&dwValue,
 		sizeof(DWORD));
 
 	RegCloseKey(hKey);

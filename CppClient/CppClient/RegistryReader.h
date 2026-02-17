@@ -48,5 +48,5 @@ public:
 	bool SetWString(const std::wstring& name, const std::wstring& value) noexcept;
 
 	// Write a DWORD value to the registry
-	bool SetDword(const std::wstring& name, DWORD value) noexcept;
+	bool SetDword(const std::wstring& name, unsigned long value) noexcept;
 };
