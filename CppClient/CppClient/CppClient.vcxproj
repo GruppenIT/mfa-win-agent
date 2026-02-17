@@ -17,7 +17,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{6DB4CA8D-7529-4310-A4CF-F3DED2D143CC}</ProjectGuid>
-    <RootNamespace>MFAZeroboxCppClientCore</RootNamespace>
+    <RootNamespace>GruppenMFACppClientCore</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>CppClient</ProjectName>
   </PropertyGroup>

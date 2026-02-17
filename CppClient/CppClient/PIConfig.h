@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2025 NetKnights GmbH
+** Copyright 2025 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,7 +36,7 @@ struct PIConfig
 
 	bool ignoreInvalidCN = false;
 	bool ignoreUnknownCA = false;
-	std::wstring userAgent = L"mfa-zerobox-cp";
+	std::wstring userAgent = L"gruppen-mfa-cp";
 
 	std::map<std::wstring, std::wstring> realmMap = std::map<std::wstring, std::wstring>();
 	std::wstring defaultRealm = L"";
@@ -55,7 +55,7 @@ struct PIConfig
 	// If format is wrong, use system
 	std::string acceptLanguage = "system";
 
-	// MFA-Zerobox Agent Management
+	// GruppenMFA Agent Management
 	std::wstring apiKey = L"";			// API Key for backend auth (Bearer mfa_xxxxx)
 	std::wstring agentId = L"";			// Agent ID received from backend after registration
 	int heartbeatIntervalSeconds = 300;	// Heartbeat interval (default 5 min)

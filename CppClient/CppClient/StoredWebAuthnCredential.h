@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace mfazerobox
+namespace gruppenmfa
 {
 	struct StoredWebAuthnCredential
 	{

@@ -1,5 +1,5 @@
 # Version 3.7.0 2024-08-05
-This version introduces a few changes, especially in the order the user is prompted for inputs. Please take a moment to read the [updated configuration documentation](https://github.com/privacyidea/privacyidea-credential-provider/blob/master/doc/configuration.rst).
+This version introduces a few changes, especially in the order the user is prompted for inputs. Please take a moment to read the [updated configuration documentation](https://github.com/gruppenmfa/gruppenmfa-credential-provider/blob/master/doc/configuration.rst).
 ## Summary of Changes
 The default order of prompts is now username -> MFA -> password. This allows for a meaningful usernameless passkey login. While the password is still required, the Credential Provider is prepared for a solution that does not need the password input from the user. 
 
@@ -22,22 +22,22 @@ Installing this version will remove unused registry entries automatically.
 * Background thread that does the polling when doing push authentication will now timeout after 5 minutes in case of ghost sessions
 * `hide_first_step_response_error` to hide the message when sending an empty password or the password in the first step did not trigger a challenge
 * Smartphone container can be enrolled with the enroll_via_multichallenge policy
-* Added option to cancel enroll_via_multichallenge enrollments with privacyIDEA 3.12+
+* Added option to cancel enroll_via_multichallenge enrollments with GruppenMFA 3.12+
 * Added `register for safe mode` to installer
 * Updated installer to reflect most of the new configuration options and removed old options
 * Added options `webauthn_offline_second_step`, `webauthn_offline_preferred` and `webauthn_offline_hide_first_step` to customize the behavior of offline WebAuthn.
 
 ## Fixes
 * Fixed a bug where `prefill_username` would still overwrite another username that was entered after the field was prefilled, resulting in a logon attempt of the wrong user.
-* Fixed implementation of GET requests so that polling for push authentications works with privacyIDEA 3.11 and higher
+* Fixed implementation of GET requests so that polling for push authentications works with GruppenMFA 3.11 and higher
 
 
 # Version 3.6.0 2024-08-09
 
 ## Enhancement
 * WebAuthn via NFC. However, this feature is marked as experimental by libfido2, which is used here. So there might be devices that do not work or other problems.
-* WebAuthn token can be used for offline authentication if it is marked as such in privacyIDEA.
-* Use of `user_verification=discouraged` policy in privacyIDEA is now considered. In offline scenarios, the PIN prompt can be controlled via `webauthn_offline_no_pin` registry setting.
+* WebAuthn token can be used for offline authentication if it is marked as such in GruppenMFA.
+* Use of `user_verification=discouraged` policy in GruppenMFA is now considered. In offline scenarios, the PIN prompt can be controlled via `webauthn_offline_no_pin` registry setting.
 * Changed translation system to allow adding or changing translations without the need to install a new version. Also added spanish translation. Both contributed by charlyR (#158)
 
 ## Fixes
@@ -86,7 +86,7 @@ Installing this version will remove unused registry entries automatically.
 
 ## Features
 * WebAuthn online
-* WebAuthn offline, requires privacyIDEA 3.10
+* WebAuthn offline, requires GruppenMFA 3.10
 
 ## Enhancements
 * Added CredentialProvider version to the useragent
@@ -100,17 +100,17 @@ Installing this version will remove unused registry entries automatically.
 # Version 3.4.0 2023-06-26
 
 ## Features
-* If 'send_upn' is enabled and the username input contains an '@' and no '\', it will be send as is to privacyidea. This feature does not *yet* check with AD if the UPN is correct.
+* If 'send_upn' is enabled and the username input contains an '@' and no '\', it will be send as is to gruppenmfa. This feature does not *yet* check with AD if the UPN is correct.
 
 ## Fixes
 * Fixed a bug where a password reset for an expired password was not recogized.
-* Fixed a bug where the '%' was not properly encoded when communicating with privacyidea.
+* Fixed a bug where the '%' was not properly encoded when communicating with gruppenmfa.
 
 
 # Version 3.3.0, 2023-02-20
 
 ## Features
-* Token enrollment via challenge-response (introduced in privacyIDEA 3.8) can be used in the CP.
+* Token enrollment via challenge-response (introduced in GruppenMFA 3.8) can be used in the CP.
 * Added whitelist for the filter to spare other credential providers from being filtered.
 
 ## Fixes
@@ -238,7 +238,7 @@ Installing this version will remove unused registry entries automatically.
 # Version 2.3.3, 2018-08-21
 
 ### Features
- * Optionally send an empty password or the domain password to the privacyIDEA server.
+ * Optionally send an empty password or the domain password to the GruppenMFA server.
    (As intended in version 2.0)
    This is only possible if the request for the OTP is made in a second step.
 
@@ -250,7 +250,7 @@ Installing this version will remove unused registry entries automatically.
  
 ### Fixes
  * Displaying the correct version number in the MSI as well as in the installed software list
- * Removed unnecessary communication with the privacyIDEA server
+ * Removed unnecessary communication with the GruppenMFA server
 
 # Version 2.3.2, 2018-08-19
 
@@ -292,7 +292,7 @@ Installing this version will remove unused registry entries automatically.
 
 ### Enhancements
   
-* When connecting to a machine with privacyIDEA CP, allow
+* When connecting to a machine with GruppenMFA CP, allow
   to use the credentials which were already passed in NLA.
   We only ask for OTP.
 
@@ -305,7 +305,7 @@ Installing this version will remove unused registry entries automatically.
   * Replaced libcurl and OpenSSL with Winhttp
   * SSL errors can be ignored optionally
   * Second dialog to enter OTP separately
-  * Optionally send the domain password to the privacyIDEA server
+  * Optionally send the domain password to the GruppenMFA server
   
 ### Enhancements
   * Adjusted Installer

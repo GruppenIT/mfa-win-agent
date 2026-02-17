@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2020 NetKnights GmbH
+** Copyright 2020 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");

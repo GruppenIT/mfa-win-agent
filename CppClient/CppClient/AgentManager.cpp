@@ -61,7 +61,7 @@ std::string AgentManager::GetOSVersion()
 
 std::string AgentManager::GetAgentVersion()
 {
-	// Extract version from userAgent string: "mfa-zerobox-cp/X.Y.Z.W [Windows/...]"
+	// Extract version from userAgent string: "gruppen-mfa-cp/X.Y.Z.W [Windows/...]"
 	string ua = Convert::ToString(_config.userAgent);
 	size_t slashPos = ua.find('/');
 	if (slashPos != string::npos)

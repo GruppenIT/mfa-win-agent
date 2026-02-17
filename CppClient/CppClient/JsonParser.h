@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2024 NetKnights GmbH
+** Copyright 2024 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,7 +31,7 @@ class JsonParser
 {
 public:
 	/// <summary>
-	/// Parse the contents of a privacyIDEA response into an object.
+	/// Parse the contents of a GruppenMFA response into an object.
 	/// </summary>
 	/// <param name="serverResponse"></param>
 	/// <param name="responseObj"></param>

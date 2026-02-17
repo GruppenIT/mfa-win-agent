@@ -1,7 +1,7 @@
 ﻿/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 **
 ** Copyright	2012 Dominik Pretzsch
-**				2025 NetKnights GmbH
+**				2025 Gruppen it Security
 **
 ** Author		Dominik Pretzsch
 **				Nils Behlen
@@ -106,7 +106,7 @@ HRESULT CCredential::Initialize(
 		if (SUCCEEDED(hr))
 		{
 			// If the password is coming from a remote login, it is encrypted and has to be decrypted
-			// to be used e.g. for sending it to privacyIDEA prior to the OTP
+			// to be used e.g. for sending it to GruppenMFA prior to the OTP
 			// This function does nothing to unencrypted passwords
 			hr = UnProtectIfNecessaryAndCopyPassword(pwzProtectedPassword, &password);
 			if (FAILED(hr))
@@ -588,7 +588,7 @@ HRESULT CCredential::SetOfflineInfo(std::string username)
 	return hr;
 }
 
-// Determine the status of FIDO2 devices, the local config and the last response from privacyidea to return the mode based on that.
+// Determine the status of FIDO2 devices, the local config and the last response from gruppenmfa to return the mode based on that.
 // It can be one of the following:
 // - Mode::SEC_KEY_PIN
 // - Mode::SEC_KEY_NO_PIN
@@ -919,7 +919,7 @@ HRESULT CCredential::SetMode(Mode mode)
 		_pCredProvCredentialEvents->SetFieldState(this, FID_OFFLINE_INFO, CPFS_HIDDEN);
 	}
 
-	// Disable offline FIDO and offline info in privacyidea step, except when webAuthnOfflineSecondStep is enabled
+	// Disable offline FIDO and offline info in gruppenmfa step, except when webAuthnOfflineSecondStep is enabled
 	// in that case, the offline link will have the online link text in the second step, so that offline use
 	// looks just like the online use.
 	if ((mode == Mode::MFA_OTP || mode > Mode::SEC_KEY_ANY) && !_config->webAuthnOfflineSecondStep)
@@ -957,7 +957,7 @@ HRESULT CCredential::SetMode(Mode mode)
 
 	// Cancel enrollment:
 	// If enroll_via_multichallenge with either push or smartphone is happening, hide the OTP field
-	// Offer to cancel the enrollment, which is available with privacyIDEA 3.12+
+	// Offer to cancel the enrollment, which is available with GruppenMFA 3.12+
 	const bool versionHigherThan312 = _config->lastResponseWithChallenge && _config->lastResponseWithChallenge->IsVersionHigherOrEqual(3, 12);
 	if ((_enrollmentInProgress || _pollEnrollmentInProgress) && versionHigherThan312 && _config->lastResponseWithChallenge->isEnrollCancellable)
 	{
@@ -1147,7 +1147,7 @@ HRESULT CCredential::CommandLinkClicked(__in DWORD dwFieldID)
 	}
 	else if (dwFieldID == FID_FIDO_ONLINE || dwFieldID == FID_FIDO_OFFLINE)
 	{
-		// Switchting between FIDO and OTP modes in the privacyIDEA step
+		// Switchting between FIDO and OTP modes in the GruppenMFA step
 		// Can also be passkey <-> username(/password) if it is the first step
 		_config->useOfflineFIDO = dwFieldID == FID_FIDO_OFFLINE;
 		string uv;
@@ -1298,7 +1298,7 @@ HRESULT CCredential::GetSerialization(
 		{
 			auto& lastResponse = _config->lastResponse;
 			// Continue with fido in the following cases:
-			// privacyIDEA says so with the preferred_client_mode, or the local setting is set and there is a sign request,
+			// GruppenMFA says so with the preferred_client_mode, or the local setting is set and there is a sign request,
 			// or when continuing fido (e.g. from NO_DEVICE to PIN)
 			bool continueWithFIDO = false;
 			if (lastResponse)
@@ -1341,7 +1341,7 @@ HRESULT CCredential::GetSerialization(
 					_config->provider.pCredentialProviderEvents->CredentialsChanged(_config->provider.upAdviseContext);
 				}
 			}
-			// Another challenge was triggered: repeat the privacyidea step
+			// Another challenge was triggered: repeat the gruppenmfa step
 			else if (lastResponse && !lastResponse->challenges.empty() && _lastStatus == S_OK)
 			{
 				PIDebug("Another challenge was triggered, repeating MFA step");
@@ -1440,7 +1440,7 @@ HRESULT CCredential::GetSerialization(
 			}
 			else
 			{
-				// Just move to privacyIDEA step
+				// Just move to GruppenMFA step
 				PIDebug("MFA not completed yet, moving to MFA step");
 				SetMode(Mode::MFA_OTP);
 				*pcpgsr = CPGSR_NO_CREDENTIAL_NOT_FINISHED;
@@ -2184,7 +2184,7 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 		isSendRequest = true;
 	}
 
-	// Send a request to privacyIDEA, try offline authentication or fido2, depending on what happened before
+	// Send a request to GruppenMFA, try offline authentication or fido2, depending on what happened before
 	if (isSendRequest)
 	{
 		HRESULT hr = E_FAIL;

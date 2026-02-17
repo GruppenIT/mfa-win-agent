@@ -3,7 +3,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 **
 ** Copyright	2012 Dominik Pretzsch
-**				2025 NetKnights GmbH
+**				2025 Gruppen it Security
 **
 ** Author		Dominik Pretzsch
 **				Nils Behlen
@@ -30,14 +30,14 @@
   <?define ProviderRegistryGUID = "7BAF541E-F8E0-4EDF-B69A-BD2771139E8E" ?>
   <?define ProviderFilterRegistryGUID = "34065473-D75F-4BC2-9782-E98E63ED0D41" ?>
   
-  <?define BaseProductName = "MFA-Zerobox Credential Provider" ?>
+  <?define BaseProductName = "GruppenMFA Credential Provider" ?>
   <?define Manufacturer = "Gruppen IT" ?>
 
   <?define Publisher = "Gruppen IT" ?>
   <?define AppURLInfoAbout = "https://www.gruppenit.com.br" ?>
 
-  <?define ProductFolderName = "MFA-Zerobox Credential Provider" ?>
-  <?define SimpleProductName = "MFA-Zerobox-CP" ?>
+  <?define ProductFolderName = "GruppenMFA Credential Provider" ?>
+  <?define SimpleProductName = "GruppenMFA-CP" ?>
 
   <!-- Locales files in ProgramData -->
   <?define PlatformProgramDataFolder = "CommonAppDataFolder" ?>

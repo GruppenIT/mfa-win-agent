@@ -31,7 +31,7 @@ constexpr auto AGENT_ENDPOINT_CONFIG_PREFIX = "/api/agents/";
 constexpr auto AGENT_ENDPOINT_CONFIG_SUFFIX = "/config";
 
 /// <summary>
-/// Manages agent lifecycle with the MFA-Zerobox backend:
+/// Manages agent lifecycle with the GruppenMFA backend:
 /// - Registration on startup
 /// - Periodic heartbeat
 /// - Configuration/policy sync
