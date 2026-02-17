@@ -16,7 +16,7 @@ public sealed class Worker : BackgroundService
     private readonly ILoggerFactory _loggerFactory;
     private readonly ConfigManager _configManager;
 
-    // ServerUrl is read from registry at startup (set by installer)
+    private const string DefaultServerUrl = "https://mfa.gruppen.com.br";
     private static readonly TimeSpan CheckinInterval = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan TamperCheckInterval = TimeSpan.FromMinutes(5);
 
@@ -52,22 +52,12 @@ public sealed class Worker : BackgroundService
         var serverUrl = _configManager.ReadServerUrl();
         if (string.IsNullOrWhiteSpace(serverUrl))
         {
-            _logger.LogError("No server URL configured. The service will wait and retry every 30s.");
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken).ConfigureAwait(false);
-                serverUrl = _configManager.ReadServerUrl();
-                if (!string.IsNullOrWhiteSpace(serverUrl))
-                {
-                    _logger.LogInformation("Server URL found, proceeding");
-                    break;
-                }
-            }
-            if (stoppingToken.IsCancellationRequested) return;
+            serverUrl = DefaultServerUrl;
+            _logger.LogInformation("No server URL in registry, using default: {Url}", serverUrl);
         }
 
         using var apiClient = new ApiClient(
-            serverUrl!, apiKey!, _loggerFactory.CreateLogger<ApiClient>());
+            serverUrl, apiKey!, _loggerFactory.CreateLogger<ApiClient>());
 
         var tamperProtection = new TamperProtection(
             _loggerFactory.CreateLogger<TamperProtection>());

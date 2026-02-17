@@ -59,11 +59,9 @@
 		<!-- END  Icons etc -->
 		<!-- END Preconditions and pre-setups -->
 
-		<!-- PROPERTIES — Simplified: only ServerUrl + ApiKey are required from user -->
-		<!-- All other CP config is downloaded from the server after installation -->
-		<Property Id="SERVER_URL" Value="https://mfa.empresa.com.br">
-			<RegistrySearch Id="SearchServerUrl" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="server_url" Win64="$(var.Win64)" Type="raw" />
-		</Property>
+		<!-- PROPERTIES — Simplified: only ApiKey is asked during install -->
+		<!-- ServerUrl is fixed; all other CP config is downloaded from the server -->
+		<Property Id="SERVER_URL" Value="https://mfa.gruppen.com.br" />
 		<Property Id="API_KEY">
 			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="api_key" Win64="$(var.Win64)" Type="raw" />
 		</Property>
