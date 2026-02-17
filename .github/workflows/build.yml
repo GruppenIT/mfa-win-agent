@@ -150,9 +150,14 @@ jobs:
       - name: Install WiX Toolset
         shell: pwsh
         run: |
-          choco install wixtoolset -y --version=3.14.1
-          # Add WiX to PATH for MSBuild
+          # Check if WiX is already available on the runner
           $wixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          if (Test-Path "$wixPath\candle.exe") {
+            Write-Host "WiX Toolset already installed at $wixPath"
+          } else {
+            choco install wixtoolset -y --no-progress
+          }
+          # Add WiX to PATH for MSBuild
           if (Test-Path $wixPath) {
             echo "$wixPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             Write-Host "WiX Toolset added to PATH: $wixPath"
