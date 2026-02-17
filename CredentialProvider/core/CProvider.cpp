@@ -58,7 +58,7 @@ CProvider::~CProvider()
 {
 	if (_agentManager)
 	{
-		_agentManager->StopHeartbeatThread();
+		_agentManager->StopPollingThread();
 	}
 	if (_credential != NULL)
 	{

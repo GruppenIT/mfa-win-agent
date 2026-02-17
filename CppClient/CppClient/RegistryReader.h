@@ -46,4 +46,7 @@ public:
 
 	// Write a string value to the registry
 	bool SetWString(const std::wstring& name, const std::wstring& value) noexcept;
+
+	// Write a DWORD value to the registry
+	bool SetDword(const std::wstring& name, unsigned long value) noexcept;
 };

@@ -326,6 +326,15 @@ string Endpoint::SendRequest(const std::string& endpoint, const std::map<std::st
 	{
 		PIError("Failed to add User-Agent to header!");
 	}
+	// Add X-API-Key header for authentication on all requests
+	if (!_config.apiKey.empty())
+	{
+		wstring apiKeyHeader = L"X-API-Key: " + _config.apiKey;
+		if (!WinHttpAddRequestHeaders(hRequest, apiKeyHeader.c_str(), (DWORD)-1L, WINHTTP_ADDREQ_FLAG_ADD))
+		{
+			PIError("Failed to add X-API-Key to header!");
+		}
+	}
 	if (!headersCopy.empty())
 	{
 		for (auto& entry : headersCopy)

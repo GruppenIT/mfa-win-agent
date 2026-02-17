@@ -241,3 +241,44 @@ bool RegistryReader::SetWString(const std::wstring& name, const std::wstring& va
 
 	return true;
 }
+
+bool RegistryReader::SetDword(const std::wstring& name, unsigned long value) noexcept
+{
+	HKEY hKey = nullptr;
+	DWORD dwDisposition = 0;
+	DWORD dwRet = RegCreateKeyEx(
+		HKEY_LOCAL_MACHINE,
+		path.c_str(),
+		0,
+		NULL,
+		REG_OPTION_NON_VOLATILE,
+		KEY_WRITE,
+		NULL,
+		&hKey,
+		&dwDisposition);
+
+	if (dwRet != ERROR_SUCCESS)
+	{
+		PIError("Failed to open/create registry key for writing " + Convert::ToString(path) + ", error: " + Convert::LongToHexString(dwRet));
+		return false;
+	}
+
+	DWORD dwValue = value;
+	dwRet = RegSetValueEx(
+		hKey,
+		name.c_str(),
+		0,
+		REG_DWORD,
+		(const BYTE*)&dwValue,
+		sizeof(DWORD));
+
+	RegCloseKey(hKey);
+
+	if (dwRet != ERROR_SUCCESS)
+	{
+		PIError("Failed to write DWORD registry value " + Convert::ToString(name) + ", error: " + Convert::LongToHexString(dwRet));
+		return false;
+	}
+
+	return true;
+}

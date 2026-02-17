@@ -59,187 +59,18 @@
 		<!-- END  Icons etc -->
 		<!-- END Preconditions and pre-setups -->
 
-		<!-- PROPERTIES - Get values for the UI from registry if available. (What if unattended/silent install?)-->
-		<!-- Hardcoded server URL for GruppenMFA backend -->
-		<Property Id="HOSTNAME" Value="mfa.gruppen.com.br">
-			<RegistrySearch Id="SearchHostname" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="hostname" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="CUSTOM_PORT" Value="10999">
-			<RegistrySearch Id="SearchCustomPort" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="custom_port" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="PATH" Value="/path/to/pi">
-			<RegistrySearch Id="SearchPath" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="path" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="LOGIN_TEXT">
-			<RegistrySearch Id="SearchLoginText" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="login_text" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OTP_TEXT">
-			<RegistrySearch Id="SearchOTPText" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="otp_text" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="V1_BITMAP_PATH">
-			<RegistrySearch Id="SearchV1BitmapPath" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="v1_bitmap_path" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="TWO_STEP_SEND_PASSWORD">
-			<RegistrySearch Id="SearchTwoStepSendPassword" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="two_step_send_password" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="TWO_STEP_SEND_EMPTY_PASSWORD">
-			<RegistrySearch Id="SearchTwoStepSendEmptyPassword" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="two_step_send_empty_password" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="SSL_IGNORE_UNKNOWN_CA">
-			<RegistrySearch Id="SearchSSLIgnoreUnknownCA" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="ssl_ignore_unknown_ca" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="SSL_IGNORE_INVALID_CN">
-			<RegistrySearch Id="SearchSSLIgnoreInvalidCN" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="ssl_ignore_invalid_cn" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="HIDE_USERNAME">
-			<RegistrySearch Id="SearchHideUsername" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="hide_username" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="HIDE_DOMAINNAME">
-			<RegistrySearch Id="SearchHideDomainname" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="hide_domainname" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="DEBUG_LOG">
-			<RegistrySearch Id="SearchDebugLog" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="debug_log" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="SEND_UPN">
-			<RegistrySearch Id="SearchSendUPN" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="send_upn" Win64="$(var.Win64)" Type="raw" />
+		<!-- PROPERTIES — Simplified: only ApiKey is asked during install -->
+		<!-- ServerUrl is fixed; all other CP config is downloaded from the server -->
+		<Property Id="SERVER_URL" Value="https://mfa.gruppen.com.br" />
+		<Property Id="API_KEY">
+			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="api_key" Win64="$(var.Win64)" Type="raw" />
 		</Property>
 		<Property Id="ENABLE_FILTER">
 			<RegistrySearch Id="SearchEnableFilter" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="enable_filter" Win64="$(var.Win64)" Type="raw" />
 		</Property>
-		<Property Id="ENABLE_RESET">
-			<RegistrySearch Id="SearchEnableReset" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="enable_reset" Win64="$(var.Win64)" Type="raw" />
+		<Property Id="DEBUG_LOG">
+			<RegistrySearch Id="SearchDebugLog" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="debug_log" Win64="$(var.Win64)" Type="raw" />
 		</Property>
-		<Property Id="FILTER_WHITELIST">
-			<RegistrySearch Id="SearchFilterWhitelist" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="filter_whitelist" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="CPUS_LOGON" Value="0e">
-			<RegistrySearch Id="SearchCPUSLogon" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="cpus_logon" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="CPUS_UNLOCK" Value="0e">
-			<RegistrySearch Id="SearchCPUSUnlock" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="cpus_unlock" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="CPUS_CREDUI" Value="0e">
-			<RegistrySearch Id="SearchCPUSCredUI" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="cpus_credui" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="RESET_LINK_TEXT">
-			<RegistrySearch Id="SearchResetLinkText" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="reset_link_text" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OFFLINE_FILE_PATH">
-			<RegistrySearch Id="SearchOfflineFilePath" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="offline_file" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OFFLINE_TRY_WINDOW">
-			<RegistrySearch Id="SearchOfflineTryWindow" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="offline_try_window" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OFFLINE_TRHESHOLD" Value="25">
-			<RegistrySearch Id="SearchOfflineTreshold" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="offline_threshold" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OFFLINE_SHOW_INFO">
-			<RegistrySearch Id="SearchOfflineShowInfo" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="offline_show_info" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OTP_LINK_TEXT">
-			<RegistrySearch Id="SearchOTPLinkText" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="otp_link_text" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_LINK_TEXT">
-			<RegistrySearch Id="SearchWebAuthnLinkText" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_link_text" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_PREFERRED">
-			<RegistrySearch Id="SearchWebAuthnPreferred" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_preferred" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_PIN_HINT">
-			<RegistrySearch Id="SearchWebAuthnPinHint" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_pin_hint" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_OFFLINE_NO_PIN">
-			<RegistrySearch Id="SearchWebAuthnOfflineNoPIN" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_offline_no_pin" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="OTP_FAIL_RETURN_TO_FIRST_STEP">
-			<RegistrySearch Id="SearchOtpFailReturnToFirstStep" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="otp_fail_return_to_first_step" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="USERNAME_PASSWORD">
-			<RegistrySearch Id="SearchUsernamePassword" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="username_password" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="DISABLE_PASSKEY">
-			<RegistrySearch Id="SearchDisablePasskey" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="disable_passkey" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="CREDUI_NO_IMAGE">
-			<RegistrySearch Id="SearchCreduiNoImage" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="credui_no_image" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="SHOW_DOMAIN_HINT">
-			<RegistrySearch Id="SearchShowDomainHint" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="show_domain_hint" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="PREFILL_USERNAME">
-			<RegistrySearch Id="SearchPrefillUsername" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="prefill_username" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="NO_DEFAULT">
-			<RegistrySearch Id="SearchNoDefault" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="no_default" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="EXCLUDED_ACCOUNT">
-			<RegistrySearch Id="SearchExcludedAccount" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="excluded_account" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="RESOLVE_TIMEOUT">
-			<RegistrySearch Id="SearchResolveTimeout" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="resolve_timeout" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="CONNECT_TIMEOUT">
-			<RegistrySearch Id="SearchConnectTimeout" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="connect_timeout" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="SEND_TIMEOUT">
-			<RegistrySearch Id="SearchSendTimeout" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="send_timeout" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="RECEIVE_TIMEOUT">
-			<RegistrySearch Id="SearchReceiveTimeout" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="receive_timeout" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="DEFAULT_REALM">
-			<RegistrySearch Id="SearchDefaultRealm" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="default_realm" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="HIDE_FIRST_STEP_RESPONSE_ERROR">
-			<RegistrySearch Id="SearchHideFirstStepResponseError" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="hide_first_step_response_error" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="FALLBACK_HOSTNAME">
-			<RegistrySearch Id="SearchFallbackHostname" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="fallback_hostname" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="FALLBACK_PORT">
-			<RegistrySearch Id="SearchFallbackPort" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="fallback_port" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="FALLBACK_PATH">
-			<RegistrySearch Id="SearchFallbackPath" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="fallback_path" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="EXCLUDED_GROUP">
-			<RegistrySearch Id="SearchExcludedGroup" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="excluded_group" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="EXCLUDED_GROUP_NETBIOS_ADDRESS">
-			<RegistrySearch Id="SearchNetBiosAddress" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="excluded_group_netbios_address" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="LOCALES_PATH">
-			<RegistrySearch Id="SearchLocalesPath" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="locales_path" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_OFFLINE_SECOND_STEP">
-			<RegistrySearch Id="SearchWebAuthnOfflineSecondStep" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_offline_second_step" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_OFFLINE_PREFERRED">
-			<RegistrySearch Id="SearchWebAuthnOfflinePreferred" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_offline_preferred" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="WEBAUTHN_OFFLINE_HIDE_FIRST_STEP">
-			<RegistrySearch Id="SearchWebAuthnOfflineHideFirstStep" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="webauthn_offline_hide_first_step" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="AUTOLOGON_USERNAME">
-			<RegistrySearch Id="SearchAutologonUsername" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="autologon_username" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="AUTOLOGON_DOMAIN">
-			<RegistrySearch Id="SearchAutologonDomain" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="autologon_domain" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="AUTOLOGON_PASSWORD">
-			<RegistrySearch Id="SearchAutologonPassword" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="autologon_password" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<!-- GRUPPENMFA AGENT MANAGEMENT PROPERTIES -->
-		<Property Id="API_KEY">
-			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="api_key" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="AGENT_ID">
-			<RegistrySearch Id="SearchAgentId" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="agent_id" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<Property Id="HEARTBEAT_INTERVAL">
-			<RegistrySearch Id="SearchHeartbeatInterval" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="heartbeat_interval" Win64="$(var.Win64)" Type="raw" />
-		</Property>
-		<!-- END GRUPPENMFA AGENT MANAGEMENT PROPERTIES -->
 
 		<!-- Directory definitions -->
 		<Directory Id="TARGETDIR" Name="SourceDir">
@@ -298,7 +129,7 @@
 							<RegistryKey Root="HKLM" Key="SOFTWARE\Gruppen IT\GruppenMFA-Agent" ForceCreateOnInstall="yes">
 								<RegistryValue Name="api_key" Type="string" Value="[API_KEY]" KeyPath="yes" />
 								<RegistryValue Name="config_hash" Type="string" Value="" />
-								<RegistryValue Name="server_url" Type="string" Value="https://mfa.gruppen.com.br:10999" />
+								<RegistryValue Name="server_url" Type="string" Value="[SERVER_URL]" />
 							</RegistryKey>
 							<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Gruppen IT\GruppenMFA-Agent" Action="removeOnUninstall" />
 						</Component>
@@ -350,94 +181,26 @@
 					<RemoveRegistryKey Root="HKCR" Key="CLSID\{$(var.ProviderRegistryGUID)}" Action="removeOnUninstall" />
 					<RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{$(var.ProviderRegistryGUID)}" Type="string" Value="$(var.CredentialProvider.TargetName)" />
 					<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{$(var.ProviderRegistryGUID)}" Action="removeOnUninstall" />
-					<!-- Configuration values (from dialogs/registry/unattended) -->
+					<!-- Configuration values — ServerUrl + ApiKey from installer, rest from server -->
 					<RegistryKey Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" ForceCreateOnInstall="yes">
-						<!-- CONNECTION & RECOVERY -->
-						<RegistryValue Name="hostname" Type="string" Value="[HOSTNAME]" />
-						<RegistryValue Name="path" Type="string" Value="[PATH]" />
-						<RegistryValue Name="custom_port" Type="string" Value="[CUSTOM_PORT]" />
-
-						<RegistryValue Name="fallback_hostname" Type="string" Value="[FALLBACK_HOSTNAME]" />
-						<RegistryValue Name="fallback_path" Type="string" Value="[FALLBACK_PATH]" />
-						<RegistryValue Name="fallback_port" Type="string" Value="[FALLBACK_PORT]" />
-
-						<RegistryValue Name="ssl_ignore_unknown_ca" Type="string" Value="[SSL_IGNORE_UNKNOWN_CA]" />
-						<RegistryValue Name="ssl_ignore_invalid_cn" Type="string" Value="[SSL_IGNORE_INVALID_CN]" />
-
-						<RegistryValue Name="resolve_timeout" Type="string" Value="[RESOLVE_TIMEOUT]" />
-						<RegistryValue Name="connect_timeout" Type="string" Value="[CONNECT_TIMEOUT]" />
-						<RegistryValue Name="send_timeout" Type="string" Value="[SEND_TIMEOUT]" />
-						<RegistryValue Name="receive_timeout" Type="string" Value="[RECEIVE_TIMEOUT]" />
-
-						<RegistryValue Name="excluded_account" Type="string" Value="[EXCLUDED_ACCOUNT]" />
-						<RegistryValue Name="excluded_group" Type="string" Value="[EXCLUDED_GROUP]" />
-						<RegistryValue Name="excluded_group_netbios_address" Type="string" Value="[EXCLUDED_GROUP_NETBIOS_ADDRESS]" />
-						<!-- END CONNECTION -->
-
-						<!-- CUSTOMIZATION -->
-						<RegistryValue Name="v1_bitmap_path" Type="string" Value="[V1_BITMAP_PATH]" />
-						<RegistryValue Name="credui_no_image" Type="string" Value="[CREDUI_NO_IMAGE]" />
-
-						<RegistryValue Name="two_step_send_password" Type="string" Value="[TWO_STEP_SEND_PASSWORD]" />
-						<RegistryValue Name="two_step_send_empty_password" Type="string" Value="[TWO_STEP_SEND_EMPTY_PASSWORD]" />
-						<RegistryValue Name="username_password" Type="string" Value="[USERNAME_PASSWORD]" />
-
-						<RegistryValue Name="hide_fullname" Type="string" Value="[HIDE_FULLNAME]" />
-						<RegistryValue Name="hide_domainname" Type="string" Value="[HIDE_DOMAINNAME]" />
-						<RegistryValue Name="hide_first_step_response_error" Type="string" Value="[HIDE_FIRST_STEP_RESPONSE_ERROR]" />
-						<RegistryValue Name="show_domain_hint" Type="string" Value="[SHOW_DOMAIN_HINT]" />
-						<RegistryValue Name="prefill_username" Type="string" Value="[PREFILL_USERNAME]" />
-						<RegistryValue Name="enable_reset" Type="string" Value="[ENABLE_RESET]" />
-						<RegistryValue Name="send_upn" Type="string" Value="[SEND_UPN]" />
-						<!-- END CUSTOMIZATION -->
-
-						<!-- CREDENTIAL PROVIDER USAGE SCENARIOS -->
-						<RegistryValue Name="cpus_logon" Type="string" Value="[CPUS_LOGON]" />
-						<RegistryValue Name="cpus_unlock" Type="string" Value="[CPUS_UNLOCK]" />
-						<RegistryValue Name="cpus_credui" Type="string" Value="[CPUS_CREDUI]" />
-						<RegistryValue Name="enable_filter" Type="string" Value="[ENABLE_FILTER]" />
-						<RegistryValue Name="filter_whitelist" Type="multiString" Value="[FILTER_WHITELIST]" />
-						<!-- END CREDENTIAL PROVIDER USAGE SCENARIOS -->
-
-						<!-- FIDO -->
-						<RegistryValue Name="webauthn_preferred" Type="string" Value="[WEBAUTHN_PREFERRED]" />
-						<RegistryValue Name="webauthn_offline_no_pin" Type="string" Value="[WEBAUTHN_OFFLINE_NO_PIN]" />
-						<RegistryValue Name="disable_passkey" Type="string" Value="[DISABLE_PASSKEY]" />
-						<RegistryValue Name="webauthn_offline_second_step" Type="string" Value="[WEBAUTHN_OFFLINE_SECOND_STEP]" />
-						<RegistryValue Name="webauthn_offline_hide_first_step" Type="string" Value="[WEBAUTHN_OFFLINE_HIDE_FIRST_STEP]" />
-						<RegistryValue Name="webauthn_offline_preferred" Type="string" Value="[WEBAUTHN_OFFLINE_PREFERRED]" />
-						<!-- END FIDO -->
-
-						<!-- MISC -->
-						<RegistryValue Name="header_accept_language" Type="string" Value="system" />
-						<RegistryValue Name="user_agent_hide_computer_name" Type="string" Value="" />
-						<RegistryValue Name="locales_path" Type="string" Value="[LOCALES_PATH]" />
-						<RegistryValue Name="debug_log" Type="string" Value="[DEBUG_LOG]" />
-						<RegistryValue Name="no_default" Type="string" Value="[NO_DEFAULT]" />
-						<RegistryValue Name="log_sensitive" Type="string" Value="" />
-						<RegistryValue Name="default_realm" Type="string" Value="[DEFAULT_REALM]" />
-						<RegistryValue Name="offline_file" Type="string" Value="[OFFLINE_FILE_PATH]" />
-						<RegistryValue Name="offline_try_window" Type="string" Value="[OFFLINE_TRY_WINDOW]" />
-						<RegistryValue Name="offline_threshold" Type="string" Value="[OFFLINE_THRESHOLD]" />
-						<RegistryValue Name="offline_show_info" Type="string" Value="[OFFLINE_SHOW_INFO]" />
-						<RegistryValue Name="otp_fail_return_to_first_step" Type="string" Value="[OTP_FAIL_RETURN_TO_FIRST_STEP]" />
-						<!-- END MISC -->
-						
-						<!-- AUTOLOGON -->
-						<RegistryValue Name="autologon_username" Type="string" Value="[AUTOLOGON_USERNAME]" />
-						<RegistryValue Name="autologon_domain" Type="string" Value="[AUTOLOGON_DOMAIN]" />
-						<RegistryValue Name="autologon_password" Type="string" Value="[AUTOLOGON_PASSWORD]" />
-						
-						<!-- LOCALIZATION-->
-						<RegistryValue Name="localesPath" Type="string" Value="[$(var.PlatformProgramDataFolder)]$(var.Publisher)\$(var.ProductFolderName)\locales" />
-						<!-- END LOCALIZATION -->
-
-						<!-- GRUPPENMFA AGENT MANAGEMENT -->
+						<!-- ESSENTIAL — set by installer -->
+						<RegistryValue Name="server_url" Type="string" Value="[SERVER_URL]" />
 						<RegistryValue Name="api_key" Type="string" Value="[API_KEY]" />
-						<RegistryValue Name="agent_id" Type="string" Value="[AGENT_ID]" />
-						<RegistryValue Name="heartbeat_interval" Type="string" Value="[HEARTBEAT_INTERVAL]" />
-						<RegistryValue Name="config_version" Type="string" Value="" />
-						<!-- END GRUPPENMFA AGENT MANAGEMENT -->
+						<RegistryValue Name="enable_filter" Type="string" Value="[ENABLE_FILTER]" />
+						<RegistryValue Name="debug_log" Type="string" Value="[DEBUG_LOG]" />
+
+						<!-- DEFAULTS — will be overridden by server config on first checkin -->
+						<RegistryValue Name="hostname" Type="string" Value="" />
+						<RegistryValue Name="path" Type="string" Value="" />
+						<RegistryValue Name="custom_port" Type="string" Value="" />
+						<RegistryValue Name="default_realm" Type="string" Value="" />
+
+						<!-- MISC — sensible defaults -->
+						<RegistryValue Name="header_accept_language" Type="string" Value="system" />
+						<RegistryValue Name="localesPath" Type="string" Value="[$(var.PlatformProgramDataFolder)]$(var.Publisher)\$(var.ProductFolderName)\locales" />
+
+						<!-- CONFIG TRACKING -->
+						<RegistryValue Name="config_hash" Type="string" Value="" />
 					</RegistryKey>
 					<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Action="removeOnUninstall" />
 					<!-- END Configuration values -->
@@ -523,18 +286,13 @@
 		<WixVariable Id="WixUIBannerBmp" Value="$(var.SolutionDir)WixUIBannerBmp.bmp" />
 		<WixVariable Id="WixUIDialogBmp" Value="$(var.SolutionDir)WixUIDialogBmp.bmp" />
 		<!-- END WiX Configuration -->
-		<!-- UI Configuration -->
+		<!-- UI Configuration — Simplified: single setup dialog for ServerUrl + ApiKey -->
 		<UI Id="MyWixUI_FeatureTree">
 			<UIRef Id="WixUI_FeatureTree" />
 			<DialogRef Id="ServerDlg" />
-			<DialogRef Id="UIDlg" />
-			<DialogRef Id="FilterDlg" />
-			<DialogRef Id="FidoDlg" />
-			<DialogRef Id="OfflineDlg" />
-			<!-- Skip the component dialog which would be between License and ServerConfig-->
+			<!-- After license, go directly to connection setup (ServerUrl + ApiKey) -->
 			<Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="ServerDlg">1</Publish>
-			<Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="OfflineDlg" Order="1">NOT Installed OR (WixUI_InstallMode = "Change" AND USER_IS_ADMINISTRATOR = "1" )</Publish>
-			<!-- END Queue custom dialogs -->
+			<Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ServerDlg" Order="1">NOT Installed OR (WixUI_InstallMode = "Change" AND USER_IS_ADMINISTRATOR = "1" )</Publish>
 		</UI>
 		<!-- END UI Configuration -->
 	</Product>

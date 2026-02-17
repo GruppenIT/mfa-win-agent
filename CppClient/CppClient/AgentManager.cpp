@@ -36,7 +36,7 @@ AgentManager::AgentManager(PIConfig& config)
 
 AgentManager::~AgentManager()
 {
-	StopHeartbeatThread();
+	StopPollingThread();
 }
 
 std::string AgentManager::GetHostname()
@@ -75,19 +75,56 @@ std::string AgentManager::GetAgentVersion()
 	return "unknown";
 }
 
-// Send a JSON request to the backend, returning the response body.
-// This is a simplified version of Endpoint::SendRequest that sends JSON instead of form data.
+// Parse serverUrl into hostname, port.
+// serverUrl format: "https://mfa.empresa.com.br" or "https://mfa.empresa.com.br:10999"
+static void ParseServerUrl(const wstring& serverUrl, wstring& outHostname, int& outPort)
+{
+	wstring url = serverUrl;
+
+	// Strip protocol prefix
+	if (url.find(L"https://") == 0) url = url.substr(8);
+	else if (url.find(L"http://") == 0) url = url.substr(7);
+
+	// Strip trailing slash
+	if (!url.empty() && url.back() == L'/') url.pop_back();
+
+	// Check for port
+	size_t colonPos = url.find(L':');
+	if (colonPos != wstring::npos)
+	{
+		outHostname = url.substr(0, colonPos);
+		outPort = _wtoi(url.substr(colonPos + 1).c_str());
+	}
+	else
+	{
+		outHostname = url;
+		outPort = INTERNET_DEFAULT_HTTPS_PORT;
+	}
+}
+
+// Send a JSON request to the backend using X-API-Key auth, returning the response body.
 static string SendJsonRequest(
 	const PIConfig& config,
 	const wstring& fullPath,
 	const string& jsonBody,
-	const string& method,
-	const string& authToken = "")
+	const string& method)
 {
 	PIDebug("AgentManager::SendJsonRequest to " + Convert::ToString(fullPath) + " method=" + method);
 
-	wstring wHostname = config.hostname;
-	int realPort = (config.port != 0) ? config.port : INTERNET_DEFAULT_HTTPS_PORT;
+	wstring wHostname;
+	int realPort = INTERNET_DEFAULT_HTTPS_PORT;
+
+	// Use serverUrl for management API calls
+	if (!config.serverUrl.empty())
+	{
+		ParseServerUrl(config.serverUrl, wHostname, realPort);
+	}
+	else
+	{
+		// Fallback to hostname/port from config
+		wHostname = config.hostname;
+		realPort = (config.port != 0) ? config.port : INTERNET_DEFAULT_HTTPS_PORT;
+	}
 
 	DWORD dwAccessType = WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY;
 
@@ -143,11 +180,11 @@ static string SendJsonRequest(
 	wstring userAgent = L"User-Agent: " + config.userAgent;
 	WinHttpAddRequestHeaders(hRequest, userAgent.c_str(), (DWORD)-1L, WINHTTP_ADDREQ_FLAG_ADD);
 
-	// Add Authorization header if we have an API key
-	if (!authToken.empty())
+	// Add X-API-Key header for authentication
+	if (!config.apiKey.empty())
 	{
-		wstring authHeader = L"Authorization: Bearer " + Convert::ToWString(authToken);
-		WinHttpAddRequestHeaders(hRequest, authHeader.c_str(), (DWORD)-1L, WINHTTP_ADDREQ_FLAG_ADD);
+		wstring apiKeyHeader = L"X-API-Key: " + config.apiKey;
+		WinHttpAddRequestHeaders(hRequest, apiKeyHeader.c_str(), (DWORD)-1L, WINHTTP_ADDREQ_FLAG_ADD);
 	}
 
 	// Send the request with JSON body
@@ -211,63 +248,36 @@ static string SendJsonRequest(
 	return response;
 }
 
-std::string AgentManager::BuildRegisterBody()
+std::string AgentManager::BuildCheckinBody()
 {
 	json body;
 	body["hostname"] = GetHostname();
-	body["osType"] = "Windows";
+	body["agentType"] = "CP";
 	body["osVersion"] = GetOSVersion();
 	body["agentVersion"] = GetAgentVersion();
-	body["agentType"] = "CP";
 	return body.dump();
 }
 
-std::string AgentManager::BuildHeartbeatBody()
+bool AgentManager::Checkin(std::string& outConfigHash)
 {
-	json body;
-	body["status"] = "online";
-
-	// Calculate uptime using GetTickCount64
-	ULONGLONG uptimeMs = GetTickCount64();
-	body["uptimeSeconds"] = uptimeMs / 1000;
-
-	json systemInfo;
-	systemInfo["osVersion"] = GetOSVersion();
-	systemInfo["agentVersion"] = GetAgentVersion();
-	systemInfo["hostname"] = GetHostname();
-	body["systemInfo"] = systemInfo;
-
-	return body.dump();
-}
-
-bool AgentManager::RegisterAgent()
-{
-	PIDebug("AgentManager::RegisterAgent");
+	PIDebug("AgentManager::Checkin");
 
 	if (_config.apiKey.empty())
 	{
-		PIError("AgentManager: Cannot register - no API key configured");
+		PIError("AgentManager: Cannot checkin - no API key configured");
 		return false;
 	}
 
-	// If we already have an agentId, skip registration
-	if (!_config.agentId.empty())
-	{
-		PIDebug("AgentManager: Agent already registered with ID: " + Convert::ToString(_config.agentId));
-		return true;
-	}
+	string jsonBody = BuildCheckinBody();
+	PIDebug("AgentManager: Checkin body: " + jsonBody);
 
-	string jsonBody = BuildRegisterBody();
-	PIDebug("AgentManager: Registration body: " + jsonBody);
+	wstring path = Convert::ToWString(string(AGENT_ENDPOINT_CHECKIN));
 
-	wstring path = Convert::ToWString(Convert::ToString(_config.path) + string(AGENT_ENDPOINT_REGISTER));
-	string apiKeyStr = Convert::ToString(_config.apiKey);
-
-	string response = SendJsonRequest(_config, path, jsonBody, "POST", apiKeyStr);
+	string response = SendJsonRequest(_config, path, jsonBody, "POST");
 
 	if (response.empty())
 	{
-		PIError("AgentManager: Registration failed - empty response");
+		PIError("AgentManager: Checkin failed - empty response");
 		return false;
 	}
 
@@ -275,103 +285,44 @@ bool AgentManager::RegisterAgent()
 	{
 		json resp = json::parse(response);
 
-		// Check for agentId in response (backend returns { agentId: "..." } or { data: { id: "..." } })
-		string agentId;
-		if (resp.contains("agentId"))
+		// Parse response: { "id": "...", "status": "ok", "configHash": "..." }
+		if (resp.contains("configHash") && !resp["configHash"].is_null())
 		{
-			agentId = resp["agentId"].get<string>();
-		}
-		else if (resp.contains("data") && resp["data"].contains("id"))
-		{
-			agentId = resp["data"]["id"].get<string>();
-		}
-		else if (resp.contains("id"))
-		{
-			agentId = resp["id"].get<string>();
+			outConfigHash = resp["configHash"].get<string>();
 		}
 
-		if (!agentId.empty())
-		{
-			_config.agentId = Convert::ToWString(agentId);
-			PIDebug("AgentManager: Registered successfully with agentId: " + agentId);
-
-			// Store agentId in registry
-			RegistryReader rr(CONFIG_REGISTRY_PATH);
-			if (!rr.SetWString(L"agent_id", _config.agentId))
-			{
-				PIError("AgentManager: Failed to store agentId in registry");
-			}
-			return true;
-		}
-		else
-		{
-			PIError("AgentManager: Registration response missing agentId");
-			return false;
-		}
+		string status = resp.value("status", "");
+		string agentId = resp.value("id", "");
+		PIDebug("AgentManager: Checkin OK - id=" + agentId + " status=" + status + " configHash=" + outConfigHash);
+		return true;
 	}
 	catch (const json::exception& e)
 	{
-		PIError("AgentManager: Failed to parse registration response: " + string(e.what()));
+		PIError("AgentManager: Failed to parse checkin response: " + string(e.what()));
 		return false;
 	}
 }
 
-bool AgentManager::SendHeartbeat()
+bool AgentManager::FetchAndApplyConfig(std::string& outConfigHash)
 {
-	if (_config.agentId.empty())
-	{
-		PIDebug("AgentManager: Cannot send heartbeat - no agentId");
-		return false;
-	}
+	PIDebug("AgentManager::FetchAndApplyConfig");
 
 	if (_config.apiKey.empty())
 	{
-		PIDebug("AgentManager: Cannot send heartbeat - no API key");
+		PIError("AgentManager: Cannot fetch config - no API key configured");
 		return false;
 	}
 
-	string agentId = Convert::ToString(_config.agentId);
-	string endpoint = string(AGENT_ENDPOINT_HEARTBEAT_PREFIX) + agentId + string(AGENT_ENDPOINT_HEARTBEAT_SUFFIX);
-	wstring path = Convert::ToWString(Convert::ToString(_config.path) + endpoint);
-	string apiKeyStr = Convert::ToString(_config.apiKey);
+	// Build URL: /api/agents/config?hostname=XXX&agentType=CP
+	string hostname = GetHostname();
+	wstring path = Convert::ToWString(
+		string(AGENT_ENDPOINT_CONFIG) + "?hostname=" + hostname + "&agentType=CP");
 
-	string jsonBody = BuildHeartbeatBody();
-	string response = SendJsonRequest(_config, path, jsonBody, "POST", apiKeyStr);
+	string response = SendJsonRequest(_config, path, "", "GET");
 
 	if (response.empty())
 	{
-		PIError("AgentManager: Heartbeat failed - empty response");
-		return false;
-	}
-
-	PIDebug("AgentManager: Heartbeat sent successfully");
-	return true;
-}
-
-bool AgentManager::SyncConfig()
-{
-	if (_config.agentId.empty())
-	{
-		PIDebug("AgentManager: Cannot sync config - no agentId");
-		return false;
-	}
-
-	if (_config.apiKey.empty())
-	{
-		PIDebug("AgentManager: Cannot sync config - no API key");
-		return false;
-	}
-
-	string agentId = Convert::ToString(_config.agentId);
-	string endpoint = string(AGENT_ENDPOINT_CONFIG_PREFIX) + agentId + string(AGENT_ENDPOINT_CONFIG_SUFFIX);
-	wstring path = Convert::ToWString(Convert::ToString(_config.path) + endpoint);
-	string apiKeyStr = Convert::ToString(_config.apiKey);
-
-	string response = SendJsonRequest(_config, path, "", "GET", apiKeyStr);
-
-	if (response.empty())
-	{
-		PIError("AgentManager: Config sync failed - empty response");
+		PIError("AgentManager: Config fetch failed - empty response");
 		return false;
 	}
 
@@ -379,61 +330,78 @@ bool AgentManager::SyncConfig()
 	{
 		json resp = json::parse(response);
 
-		// Extract config data — the backend returns CpConfigPolicy fields
-		json configData;
-		if (resp.contains("data"))
+		// Extract configHash
+		if (resp.contains("configHash") && !resp["configHash"].is_null())
 		{
-			configData = resp["data"];
-		}
-		else
-		{
-			configData = resp;
+			outConfigHash = resp["configHash"].get<string>();
 		}
 
-		// Check configVersion to see if we need to update
-		string newVersion;
-		if (configData.contains("configVersion"))
+		// Extract config object
+		if (!resp.contains("config") || !resp["config"].is_object())
 		{
-			newVersion = configData["configVersion"].get<string>();
-		}
-		else if (configData.contains("version"))
-		{
-			newVersion = configData["version"].get<string>();
+			PIError("AgentManager: Config response missing 'config' object");
+			return false;
 		}
 
-		string currentVersion = Convert::ToString(_config.configVersion);
-		if (!newVersion.empty() && newVersion == currentVersion)
-		{
-			PIDebug("AgentManager: Config is up to date (version: " + currentVersion + ")");
-			return true;
-		}
+		json configData = resp["config"];
 
+		// Write config values to the CP registry
 		RegistryReader rr(CONFIG_REGISTRY_PATH);
 
-		// Apply config fields from the policy if they exist
-		// These override local registry values when policy is set
-		if (configData.contains("hostname"))
+		// REG_SZ fields — only write if key is present in JSON
+		if (configData.contains("hostname") && configData["hostname"].is_string())
+			rr.SetWString(L"hostname", Convert::ToWString(configData["hostname"].get<string>()));
+
+		if (configData.contains("path") && configData["path"].is_string())
+			rr.SetWString(L"path", Convert::ToWString(configData["path"].get<string>()));
+
+		if (configData.contains("default_realm") && configData["default_realm"].is_string())
+			rr.SetWString(L"default_realm", Convert::ToWString(configData["default_realm"].get<string>()));
+
+		if (configData.contains("otp_text") && configData["otp_text"].is_string())
+			rr.SetWString(L"otp_text", Convert::ToWString(configData["otp_text"].get<string>()));
+
+		if (configData.contains("excluded_account") && configData["excluded_account"].is_string())
+			rr.SetWString(L"excluded_account", Convert::ToWString(configData["excluded_account"].get<string>()));
+
+		if (configData.contains("excluded_group") && configData["excluded_group"].is_string())
+			rr.SetWString(L"excluded_group", Convert::ToWString(configData["excluded_group"].get<string>()));
+
+		// REG_DWORD fields (numbers)
+		if (configData.contains("custom_port") && configData["custom_port"].is_number_integer())
+			rr.SetDword(L"custom_port", (DWORD)configData["custom_port"].get<int>());
+
+		// REG_DWORD fields (booleans: true->1, false->0)
+		if (configData.contains("ssl_ignore_invalid_cn") && configData["ssl_ignore_invalid_cn"].is_boolean())
+			rr.SetDword(L"ssl_ignore_invalid_cn", configData["ssl_ignore_invalid_cn"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("hide_fullname") && configData["hide_fullname"].is_boolean())
+			rr.SetDword(L"hide_fullname", configData["hide_fullname"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("hide_domainname") && configData["hide_domainname"].is_boolean())
+			rr.SetDword(L"hide_domainname", configData["hide_domainname"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("two_step_hide_otp") && configData["two_step_hide_otp"].is_boolean())
+			rr.SetDword(L"two_step_hide_otp", configData["two_step_hide_otp"].get<bool>() ? 1 : 0);
+
+		// Store config hash in registry
+		if (!outConfigHash.empty())
 		{
-			wstring val = Convert::ToWString(configData["hostname"].get<string>());
-			rr.SetWString(L"hostname", val);
+			rr.SetWString(L"config_hash", Convert::ToWString(outConfigHash));
 		}
 
-		if (configData.contains("heartbeatInterval"))
+		// Log applied policies if present
+		if (resp.contains("appliedPolicies") && resp["appliedPolicies"].is_array())
 		{
-			int interval = configData["heartbeatInterval"].get<int>();
-			_config.heartbeatIntervalSeconds = interval;
-			rr.SetWString(L"heartbeat_interval", to_wstring(interval));
+			for (const auto& policy : resp["appliedPolicies"])
+			{
+				string policyName = policy.value("name", "unknown");
+				bool isDefault = policy.value("isDefault", false);
+				PIDebug("AgentManager: Applied policy: " + policyName + (isDefault ? " (default)" : ""));
+			}
 		}
 
-		// Store the new config version
-		if (!newVersion.empty())
-		{
-			_config.configVersion = Convert::ToWString(newVersion);
-			rr.SetWString(L"config_version", _config.configVersion);
-		}
-
-		PIDebug("AgentManager: Config synced successfully" +
-			(newVersion.empty() ? "" : " (version: " + newVersion + ")"));
+		PIDebug("AgentManager: Config applied successfully (configHash: " + outConfigHash + ")");
 		return true;
 	}
 	catch (const json::exception& e)
@@ -443,46 +411,110 @@ bool AgentManager::SyncConfig()
 	}
 }
 
-void AgentManager::HeartbeatLoop()
+bool AgentManager::AckConfig(const std::string& configHash)
 {
-	PIDebug("AgentManager: Heartbeat thread started (interval: " + to_string(_config.heartbeatIntervalSeconds) + "s)");
+	PIDebug("AgentManager::AckConfig");
 
-	while (_runHeartbeat.load())
+	if (_config.apiKey.empty())
+	{
+		PIError("AgentManager: Cannot ack config - no API key configured");
+		return false;
+	}
+
+	json body;
+	body["hostname"] = GetHostname();
+	body["agentType"] = "CP";
+	body["configHash"] = configHash;
+
+	wstring path = Convert::ToWString(string(AGENT_ENDPOINT_CONFIG_ACK));
+
+	string response = SendJsonRequest(_config, path, body.dump(), "POST");
+
+	if (response.empty())
+	{
+		PIError("AgentManager: Config ACK failed - empty response");
+		return false;
+	}
+
+	try
+	{
+		json resp = json::parse(response);
+		string status = resp.value("status", "");
+		PIDebug("AgentManager: Config ACK response status: " + status);
+		return true;
+	}
+	catch (const json::exception& e)
+	{
+		PIError("AgentManager: Failed to parse config ACK response: " + string(e.what()));
+		return false;
+	}
+}
+
+void AgentManager::PollingLoop()
+{
+	PIDebug("AgentManager: Polling thread started (interval: " + to_string(_config.pollingIntervalSeconds) + "s)");
+
+	while (_runPolling.load())
 	{
 		// Sleep in small increments so we can stop quickly
-		int totalSleepMs = _config.heartbeatIntervalSeconds * 1000;
+		int totalSleepMs = _config.pollingIntervalSeconds * 1000;
 		int sleptMs = 0;
-		while (sleptMs < totalSleepMs && _runHeartbeat.load())
+		while (sleptMs < totalSleepMs && _runPolling.load())
 		{
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 			sleptMs += 1000;
 		}
 
-		if (!_runHeartbeat.load()) break;
+		if (!_runPolling.load()) break;
 
-		SendHeartbeat();
+		// Step 1: Checkin
+		string newConfigHash;
+		if (!Checkin(newConfigHash))
+		{
+			PIDebug("AgentManager: Polling checkin failed, will retry next cycle");
+			continue;
+		}
+
+		// Step 2: Compare configHash — sync only if changed
+		if (!newConfigHash.empty() && newConfigHash != _lastConfigHash)
+		{
+			PIDebug("AgentManager: Config hash changed (" + _lastConfigHash + " -> " + newConfigHash + "), syncing...");
+
+			string fetchedHash;
+			if (FetchAndApplyConfig(fetchedHash))
+			{
+				// Step 3: ACK config
+				AckConfig(fetchedHash);
+				_lastConfigHash = fetchedHash;
+				_config.configHash = fetchedHash;
+			}
+		}
+		else
+		{
+			PIDebug("AgentManager: Config is up to date");
+		}
 	}
 
-	PIDebug("AgentManager: Heartbeat thread stopped");
+	PIDebug("AgentManager: Polling thread stopped");
 }
 
-void AgentManager::StartHeartbeatThread()
+void AgentManager::StartPollingThread()
 {
-	if (_runHeartbeat.load())
+	if (_runPolling.load())
 	{
-		PIDebug("AgentManager: Heartbeat thread already running");
+		PIDebug("AgentManager: Polling thread already running");
 		return;
 	}
 
-	_runHeartbeat.store(true);
-	_heartbeatThread = std::thread(&AgentManager::HeartbeatLoop, this);
-	_heartbeatThread.detach();
+	_runPolling.store(true);
+	_pollingThread = std::thread(&AgentManager::PollingLoop, this);
+	_pollingThread.detach();
 }
 
-void AgentManager::StopHeartbeatThread()
+void AgentManager::StopPollingThread()
 {
-	PIDebug("AgentManager: Stopping heartbeat thread...");
-	_runHeartbeat.store(false);
+	PIDebug("AgentManager: Stopping polling thread...");
+	_runPolling.store(false);
 }
 
 void AgentManager::OnStartup()
@@ -495,22 +527,35 @@ void AgentManager::OnStartup()
 		return;
 	}
 
-	// Step 1: Register if needed
-	if (_config.agentId.empty())
+	// Step 1: Checkin
+	string configHash;
+	if (!Checkin(configHash))
 	{
-		if (!RegisterAgent())
-		{
-			PIError("AgentManager: Registration failed, will retry on next startup");
-			return;
-		}
+		PIError("AgentManager: Initial checkin failed, will retry in polling loop");
+		StartPollingThread();
+		return;
 	}
 
-	// Step 2: Sync config
-	SyncConfig();
+	_lastConfigHash = _config.configHash; // Load from registry (persisted from last run)
 
-	// Step 3: Send initial heartbeat
-	SendHeartbeat();
+	// Step 2: Fetch config if hash changed (or first run)
+	if (!configHash.empty() && configHash != _lastConfigHash)
+	{
+		string fetchedHash;
+		if (FetchAndApplyConfig(fetchedHash))
+		{
+			// Step 3: ACK config
+			AckConfig(fetchedHash);
+			_lastConfigHash = fetchedHash;
+			_config.configHash = fetchedHash;
+		}
+	}
+	else
+	{
+		_lastConfigHash = configHash;
+		PIDebug("AgentManager: Config is up to date on startup");
+	}
 
-	// Step 4: Start periodic heartbeat
-	StartHeartbeatThread();
+	// Step 4: Start periodic polling
+	StartPollingThread();
 }

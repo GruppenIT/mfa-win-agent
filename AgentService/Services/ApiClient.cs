@@ -45,7 +45,9 @@ public sealed class ApiClient : IDisposable
             Timeout = TimeSpan.FromSeconds(30)
         };
         _http.DefaultRequestHeaders.Add("X-API-Key", _apiKey);
-        _http.DefaultRequestHeaders.Add("User-Agent", "gruppen-mfa-agent/1.0.0");
+        var version = typeof(ApiClient).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        var hostname = Environment.MachineName.ToUpperInvariant();
+        _http.DefaultRequestHeaders.Add("User-Agent", $"gruppen-mfa-cp/{version} Windows/{hostname}");
     }
 
     /// <summary>

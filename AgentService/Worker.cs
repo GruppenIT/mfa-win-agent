@@ -16,7 +16,7 @@ public sealed class Worker : BackgroundService
     private readonly ILoggerFactory _loggerFactory;
     private readonly ConfigManager _configManager;
 
-    private const string ServerUrl = "https://mfa.gruppen.com.br:10999";
+    private const string DefaultServerUrl = "https://mfa.gruppen.com.br";
     private static readonly TimeSpan CheckinInterval = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan TamperCheckInterval = TimeSpan.FromMinutes(5);
 
@@ -49,8 +49,15 @@ public sealed class Worker : BackgroundService
             if (stoppingToken.IsCancellationRequested) return;
         }
 
+        var serverUrl = _configManager.ReadServerUrl();
+        if (string.IsNullOrWhiteSpace(serverUrl))
+        {
+            serverUrl = DefaultServerUrl;
+            _logger.LogInformation("No server URL in registry, using default: {Url}", serverUrl);
+        }
+
         using var apiClient = new ApiClient(
-            ServerUrl, apiKey!, _loggerFactory.CreateLogger<ApiClient>());
+            serverUrl, apiKey!, _loggerFactory.CreateLogger<ApiClient>());
 
         var tamperProtection = new TamperProtection(
             _loggerFactory.CreateLogger<TamperProtection>());

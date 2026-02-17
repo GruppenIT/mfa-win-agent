@@ -56,8 +56,8 @@ struct PIConfig
 	std::string acceptLanguage = "system";
 
 	// GruppenMFA Agent Management
-	std::wstring apiKey = L"";			// API Key for backend auth (Bearer mfa_xxxxx)
-	std::wstring agentId = L"";			// Agent ID received from backend after registration
-	int heartbeatIntervalSeconds = 300;	// Heartbeat interval (default 5 min)
-	std::wstring configVersion = L"";	// Config version for sync
+	std::wstring serverUrl = L"";		// Full management server URL (e.g. "https://mfa.empresa.com.br")
+	std::wstring apiKey = L"";			// API Key for backend auth (X-API-Key: mfa_xxxxx)
+	int pollingIntervalSeconds = 120;	// Checkin/polling interval (default 2 min)
+	std::string configHash = "";		// Config hash from last checkin (for change detection)
 };
