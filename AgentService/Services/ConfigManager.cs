@@ -42,6 +42,41 @@ public sealed class ConfigManager
     }
 
     /// <summary>
+    /// Read the server URL from registry.
+    /// Checks the Agent registry first, then falls back to CP registry.
+    /// </summary>
+    public string ReadServerUrl()
+    {
+        // Try agent registry first
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(AgentRegistryPath);
+            var val = key?.GetValue("server_url") as string;
+            if (!string.IsNullOrWhiteSpace(val))
+                return val;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not read server URL from agent registry");
+        }
+
+        // Fallback to CP registry
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(CpRegistryPath);
+            var val = key?.GetValue("server_url") as string;
+            if (!string.IsNullOrWhiteSpace(val))
+                return val;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not read server URL from CP registry");
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
     /// Read the API key from the local agent.conf file or registry.
     /// </summary>
     public string ReadApiKey()
@@ -180,10 +215,35 @@ public sealed class ConfigManager
 
     /// <summary>
     /// Write the config fields to the CP registry so the DLL can read them.
+    /// Only writes fields that have values (absent JSON keys = don't alter current registry).
     /// </summary>
     private void SyncToRegistry(AgentConfig config)
     {
         using var key = Registry.LocalMachine.CreateSubKey(CpRegistryPath);
+
+        // CP connection settings (from server config — spec fields)
+        if (config.Hostname != null)
+            key.SetValue("hostname", config.Hostname, RegistryValueKind.String);
+        if (config.CustomPort.HasValue)
+            key.SetValue("custom_port", config.CustomPort.Value, RegistryValueKind.DWord);
+        if (config.Path != null)
+            key.SetValue("path", config.Path, RegistryValueKind.String);
+        if (config.SslIgnoreInvalidCn.HasValue)
+            key.SetValue("ssl_ignore_invalid_cn", config.SslIgnoreInvalidCn.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.DefaultRealm != null)
+            key.SetValue("default_realm", config.DefaultRealm, RegistryValueKind.String);
+        if (config.OtpText != null)
+            key.SetValue("otp_text", config.OtpText, RegistryValueKind.String);
+        if (config.HideFullname.HasValue)
+            key.SetValue("hide_fullname", config.HideFullname.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.HideDomainname.HasValue)
+            key.SetValue("hide_domainname", config.HideDomainname.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.TwoStepHideOtp.HasValue)
+            key.SetValue("two_step_hide_otp", config.TwoStepHideOtp.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.ExcludedAccount != null)
+            key.SetValue("excluded_account", config.ExcludedAccount, RegistryValueKind.String);
+        if (config.ExcludedGroup != null)
+            key.SetValue("excluded_group", config.ExcludedGroup, RegistryValueKind.String);
 
         // Offline settings
         key.SetValue("offline_grace_period", config.OfflineGracePeriod, RegistryValueKind.DWord);
@@ -196,7 +256,7 @@ public sealed class ConfigManager
         if (File.Exists(LogoFilePath))
             key.SetValue("v1_bitmap_path", LogoFilePath, RegistryValueKind.String);
 
-        // Exceptions
+        // Exceptions (legacy array format)
         if (config.ExceptUsers.Length > 0)
             key.SetValue("excluded_account", string.Join(";", config.ExceptUsers), RegistryValueKind.String);
         if (config.ExceptGroups.Length > 0)
@@ -206,8 +266,7 @@ public sealed class ConfigManager
         key.SetValue("prevent_uninstall", config.PreventUninstall ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("prevent_disable", config.PreventDisable ? 1 : 0, RegistryValueKind.DWord);
 
-        // Scenario enforcement — map to CP's cpus_* registry values
-        // The CP reads cpus_logon, cpus_unlock, cpus_credui values as scenario overrides
+        // Scenario enforcement
         key.SetValue("force_on_rdp", config.ForceOnRDP ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("force_on_console", config.ForceOnConsole ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("force_on_unlock", config.ForceOnUnlock ? 1 : 0, RegistryValueKind.DWord);

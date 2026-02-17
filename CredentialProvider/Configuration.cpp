@@ -150,14 +150,14 @@ void Configuration::Load()
 	autoLogonPassword = rr.GetWString(L"autologon_password");
 
 	// GruppenMFA Agent Management
+	piconfig.serverUrl = rr.GetWString(L"server_url");
 	piconfig.apiKey = rr.GetWString(L"api_key");
-	piconfig.agentId = rr.GetWString(L"agent_id");
-	int heartbeat = rr.GetInt(L"heartbeat_interval");
-	if (heartbeat > 0)
+	int polling = rr.GetInt(L"polling_interval");
+	if (polling > 0)
 	{
-		piconfig.heartbeatIntervalSeconds = heartbeat;
+		piconfig.pollingIntervalSeconds = polling;
 	}
-	piconfig.configVersion = rr.GetWString(L"config_version");
+	piconfig.configHash = Convert::ToString(rr.GetWString(L"config_hash"));
 
 	// Get the Windows Version, deprecated
 	OSVERSIONINFOEX info;
@@ -302,10 +302,10 @@ void Configuration::LogConfig()
 	}
 
 	// GruppenMFA Agent Management
-	PrintIfStringNotEmpty(L"Agent ID", piconfig.agentId);
+	PrintIfStringNotEmpty(L"Server URL", piconfig.serverUrl);
 	PIDebug("API Key: " + std::string(piconfig.apiKey.empty() ? "not set" : "configured"));
-	PrintIfIntIsNotValue("Heartbeat interval", piconfig.heartbeatIntervalSeconds, 300);
-	PrintIfStringNotEmpty(L"Config version", piconfig.configVersion);
+	PrintIfIntIsNotValue("Polling interval", piconfig.pollingIntervalSeconds, 120);
+	PIDebug("Config hash: " + (piconfig.configHash.empty() ? "(none)" : piconfig.configHash));
 
 	PIDebug("---------------------------------");
 }

@@ -24,17 +24,15 @@
 #include <thread>
 #include <functional>
 
-constexpr auto AGENT_ENDPOINT_REGISTER = "/api/agents/register";
-constexpr auto AGENT_ENDPOINT_HEARTBEAT_PREFIX = "/api/agents/";
-constexpr auto AGENT_ENDPOINT_HEARTBEAT_SUFFIX = "/heartbeat";
-constexpr auto AGENT_ENDPOINT_CONFIG_PREFIX = "/api/agents/";
-constexpr auto AGENT_ENDPOINT_CONFIG_SUFFIX = "/config";
+constexpr auto AGENT_ENDPOINT_CHECKIN = "/api/agents/checkin";
+constexpr auto AGENT_ENDPOINT_CONFIG = "/api/agents/config";
+constexpr auto AGENT_ENDPOINT_CONFIG_ACK = "/api/agents/config/ack";
 
 /// <summary>
 /// Manages agent lifecycle with the GruppenMFA backend:
-/// - Registration on startup
-/// - Periodic heartbeat
-/// - Configuration/policy sync
+/// - Checkin on startup and periodically (every 2 min)
+/// - Configuration download and apply when configHash changes
+/// - Configuration ACK after successful apply
 /// </summary>
 class AgentManager
 {
@@ -46,43 +44,45 @@ public:
 	AgentManager& operator=(const AgentManager&) = delete;
 
 	/// <summary>
-	/// Register this agent with the backend. Stores agentId in registry on success.
+	/// Send a checkin to the backend. Returns the configHash from the response.
 	/// </summary>
-	/// <returns>true if registration succeeded</returns>
-	bool RegisterAgent();
+	/// <param name="outConfigHash">Receives the configHash from the server</param>
+	/// <returns>true if checkin succeeded</returns>
+	bool Checkin(std::string& outConfigHash);
 
 	/// <summary>
-	/// Send a heartbeat to the backend.
+	/// Fetch configuration from the backend and apply it to the registry.
 	/// </summary>
-	/// <returns>true if heartbeat succeeded</returns>
-	bool SendHeartbeat();
+	/// <param name="outConfigHash">Receives the configHash from the config response</param>
+	/// <returns>true if config was fetched and applied</returns>
+	bool FetchAndApplyConfig(std::string& outConfigHash);
 
 	/// <summary>
-	/// Fetch configuration/policy from the backend and apply it.
+	/// Send a config ACK to the backend to confirm config was applied.
 	/// </summary>
-	/// <returns>true if config sync succeeded</returns>
-	bool SyncConfig();
+	/// <param name="configHash">The configHash to acknowledge</param>
+	/// <returns>true if ACK succeeded</returns>
+	bool AckConfig(const std::string& configHash);
 
 	/// <summary>
-	/// Start the background heartbeat thread.
+	/// Start the background polling thread (checkin + config refresh every 2 min).
 	/// </summary>
-	void StartHeartbeatThread();
+	void StartPollingThread();
 
 	/// <summary>
-	/// Stop the background heartbeat thread.
+	/// Stop the background polling thread.
 	/// </summary>
-	void StopHeartbeatThread();
+	void StopPollingThread();
 
 	/// <summary>
-	/// Run initial startup tasks: register (if needed), sync config, start heartbeat.
+	/// Run initial startup tasks: checkin, fetch config if needed, ack, start polling.
 	/// </summary>
 	void OnStartup();
 
 private:
-	void HeartbeatLoop();
+	void PollingLoop();
 
-	std::string BuildRegisterBody();
-	std::string BuildHeartbeatBody();
+	std::string BuildCheckinBody();
 
 	std::string GetOSVersion();
 	std::string GetHostname();
@@ -90,6 +90,7 @@ private:
 
 	PIConfig& _config;
 	Endpoint _endpoint;
-	std::atomic<bool> _runHeartbeat{ false };
-	std::thread _heartbeatThread;
+	std::atomic<bool> _runPolling{ false };
+	std::thread _pollingThread;
+	std::string _lastConfigHash;
 };

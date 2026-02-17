@@ -8,6 +8,40 @@ namespace GruppenMFA.AgentService.Models;
 /// </summary>
 public class AgentConfig
 {
+    // CP connection settings (written to CP registry)
+    [JsonPropertyName("hostname")]
+    public string? Hostname { get; set; }
+
+    [JsonPropertyName("custom_port")]
+    public int? CustomPort { get; set; }
+
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    [JsonPropertyName("ssl_ignore_invalid_cn")]
+    public bool? SslIgnoreInvalidCn { get; set; }
+
+    [JsonPropertyName("default_realm")]
+    public string? DefaultRealm { get; set; }
+
+    [JsonPropertyName("otp_text")]
+    public string? OtpText { get; set; }
+
+    [JsonPropertyName("hide_fullname")]
+    public bool? HideFullname { get; set; }
+
+    [JsonPropertyName("hide_domainname")]
+    public bool? HideDomainname { get; set; }
+
+    [JsonPropertyName("two_step_hide_otp")]
+    public bool? TwoStepHideOtp { get; set; }
+
+    [JsonPropertyName("excluded_account")]
+    public string? ExcludedAccount { get; set; }
+
+    [JsonPropertyName("excluded_group")]
+    public string? ExcludedGroup { get; set; }
+
     // Offline behavior
     [JsonPropertyName("offlineGracePeriod")]
     public int OfflineGracePeriod { get; set; } = 3600;
@@ -28,7 +62,7 @@ public class AgentConfig
     [JsonPropertyName("totpPromptLogoBase64")]
     public string? TotpPromptLogoBase64 { get; set; }
 
-    // Exceptions
+    // Exceptions (legacy array format)
     [JsonPropertyName("exceptUsers")]
     public string[] ExceptUsers { get; set; } = Array.Empty<string>();
 
