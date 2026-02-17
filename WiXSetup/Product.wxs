@@ -269,13 +269,7 @@
 							<RemoveFolder Id="RemoveCompanyFolderIfEmpty" Directory="CompanyFolder" On="install" />
 						</Component>
 					</Directory>
-				</Directory>
-			</Directory>
-			<!-- END Directories/Components to be placed in ProgramFiles-folder -->
-
-			<!-- Agent Service components in ProgramFiles -->
-			<Directory Id="ProgramFiles64Folder2" Name="ProgramFiles64Folder">
-				<Directory Id="AgentCompanyFolder" Name="Gruppen IT">
+					<!-- Agent Service subfolder under CompanyFolder -->
 					<Directory Id="AGENTFOLDER" Name="GruppenMFA">
 						<Component Id="AgentServiceExe" Location="local" Guid="B7F3A1E2-4D5C-6E7F-8A9B-0C1D2E3F4A5B">
 							<File Id="AgentServiceFile" Name="GruppenMFA.AgentService.exe"
@@ -315,6 +309,7 @@
 					</Directory>
 				</Directory>
 			</Directory>
+			<!-- END Directories/Components to be placed in ProgramFiles-folder -->
 
 			<!-- Directories/Components to be placed in ProgramData-folder (localization files)-->
 			<Directory Id="$(var.PlatformProgramDataFolder)" Name="$(var.PlatformProgramDataFolder)">
