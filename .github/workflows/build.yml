@@ -44,38 +44,74 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile "$dest\json.hpp"
           Write-Host "Downloaded nlohmann/json.hpp to $dest"
 
-      - name: Download libfido2 (NFC-enabled)
+      - name: Download libfido2 (Yubico prebuilt)
         shell: pwsh
         run: |
-          # Option 1: Download from a GitHub Release asset in THIS repo
-          # Requires you to upload libfido2-1.15.0-nfc-enabled.zip as a release asset
-          $tag = "deps-v1"
-          $asset = "libfido2-${{ env.LIBFIDO2_VERSION }}-nfc-enabled.zip"
-          try {
-            $url = "https://github.com/${{ github.repository }}/releases/download/$tag/$asset"
-            Write-Host "Trying to download libfido2 from: $url"
-            Invoke-WebRequest -Uri $url -OutFile "libfido2.zip"
-            Expand-Archive -Path "libfido2.zip" -DestinationPath "." -Force
-            Remove-Item "libfido2.zip"
-            Write-Host "libfido2 extracted successfully"
-          }
-          catch {
-            Write-Host "::warning::Could not download libfido2 from release assets."
-            Write-Host "::warning::Please upload '$asset' as a release asset with tag '$tag'."
-            Write-Host "::warning::See README for instructions on building libfido2 with NFC support."
-            exit 1
+          $version = "${{ env.LIBFIDO2_VERSION }}"
+          $url = "https://developers.yubico.com/libfido2/Releases/libfido2-${version}-win.zip"
+          $targetDir = "libfido2-${version}-nfc-enabled"
+
+          Write-Host "Downloading libfido2 from: $url"
+          Invoke-WebRequest -Uri $url -OutFile "libfido2-win.zip"
+          Expand-Archive -Path "libfido2-win.zip" -DestinationPath "libfido2-tmp" -Force
+          Remove-Item "libfido2-win.zip"
+
+          # Remap Yubico's layout to the directory structure the project expects:
+          #   libfido2-X.Y.Z-nfc-enabled/include/  (headers)
+          #   libfido2-X.Y.Z-nfc-enabled/static/   (static libs)
+          New-Item -ItemType Directory -Force -Path "$targetDir\include" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$targetDir\static" | Out-Null
+
+          # Find the extracted root (may be nested one level)
+          $extractedRoot = Get-ChildItem "libfido2-tmp" -Directory | Select-Object -First 1
+          if (-not $extractedRoot) { $extractedRoot = Get-Item "libfido2-tmp" }
+
+          # Copy headers
+          Copy-Item "$($extractedRoot.FullName)\include\*" "$targetDir\include\" -Recurse -Force
+          Write-Host "Headers copied"
+
+          # Copy static libs from Win64 (try common Yubico layout paths)
+          $staticPaths = @(
+            "$($extractedRoot.FullName)\Win64\Release\v143\static",
+            "$($extractedRoot.FullName)\Win64\Release\static",
+            "$($extractedRoot.FullName)\Win64\static",
+            "$($extractedRoot.FullName)\Win64"
+          )
+          $found = $false
+          foreach ($p in $staticPaths) {
+            if (Test-Path "$p\fido2.lib") {
+              Copy-Item "$p\*" "$targetDir\static\" -Recurse -Force
+              Write-Host "Static libs copied from: $p"
+              $found = $true
+              break
+            }
           }
 
-          # Verify expected structure
-          if (-not (Test-Path "libfido2-${{ env.LIBFIDO2_VERSION }}-nfc-enabled\include\fido.h")) {
-            Write-Host "::error::libfido2 archive missing expected include/fido.h"
-            exit 1
+          if (-not $found) {
+            # Fallback: search recursively for fido2.lib
+            $fidoLib = Get-ChildItem "libfido2-tmp" -Recurse -Filter "fido2.lib" | Select-Object -First 1
+            if ($fidoLib) {
+              Copy-Item "$($fidoLib.DirectoryName)\*" "$targetDir\static\" -Recurse -Force
+              Write-Host "Static libs copied from: $($fidoLib.DirectoryName)"
+            } else {
+              Write-Host "::error::Could not find fido2.lib in Yubico release"
+              Get-ChildItem "libfido2-tmp" -Recurse | ForEach-Object { Write-Host $_.FullName }
+              exit 1
+            }
           }
-          if (-not (Test-Path "libfido2-${{ env.LIBFIDO2_VERSION }}-nfc-enabled\static\fido2.lib")) {
-            Write-Host "::error::libfido2 archive missing expected static/fido2.lib"
-            exit 1
+
+          Remove-Item "libfido2-tmp" -Recurse -Force
+
+          # Verify
+          $required = @("include\fido.h", "static\fido2.lib")
+          foreach ($f in $required) {
+            if (-not (Test-Path "$targetDir\$f")) {
+              Write-Host "::error::Missing expected file: $targetDir\$f"
+              exit 1
+            }
           }
-          Write-Host "libfido2 dependency verified"
+          Write-Host "libfido2 dependency ready at $targetDir"
+          Get-ChildItem "$targetDir\static" | ForEach-Object { Write-Host "  lib: $($_.Name)" }
 
       - name: Copy VC++ Merge Modules
         shell: pwsh
