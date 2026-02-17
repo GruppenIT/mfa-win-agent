@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2025 NetKnights GmbH
+** Copyright 2025 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,7 @@ void Configuration::Load()
 	piconfig.ignoreUnknownCA = rr.GetBool(L"ssl_ignore_unknown_ca");
 	piconfig.ignoreInvalidCN = rr.GetBool(L"ssl_ignore_invalid_cn");
 
-	piconfig.userAgent = L"mfa-zerobox-cp/" + Convert::ToWString(string(VER_FILE_VERSION_STR));
+	piconfig.userAgent = L"gruppen-mfa-cp/" + Convert::ToWString(string(VER_FILE_VERSION_STR));
 	if (!rr.GetBool(L"user_agent_hide_computer_name"))
 	{
 		piconfig.userAgent += L" Windows/" + Utilities::ComputerName();
@@ -149,7 +149,7 @@ void Configuration::Load()
 	autoLogonDomain = rr.GetWString(L"autologon_domain");
 	autoLogonPassword = rr.GetWString(L"autologon_password");
 
-	// MFA-Zerobox Agent Management
+	// GruppenMFA Agent Management
 	piconfig.apiKey = rr.GetWString(L"api_key");
 	piconfig.agentId = rr.GetWString(L"agent_id");
 	int heartbeat = rr.GetInt(L"heartbeat_interval");
@@ -301,7 +301,7 @@ void Configuration::LogConfig()
 		PIDebug(tmp.substr(0, tmp.size() - 2).c_str());
 	}
 
-	// MFA-Zerobox Agent Management
+	// GruppenMFA Agent Management
 	PrintIfStringNotEmpty(L"Agent ID", piconfig.agentId);
 	PIDebug("API Key: " + std::string(piconfig.apiKey.empty() ? "not set" : "configured"));
 	PrintIfIntIsNotValue("Heartbeat interval", piconfig.heartbeatIntervalSeconds, 300);

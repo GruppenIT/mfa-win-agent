@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2025 NetKnights GmbH
+** Copyright 2025 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");
@@ -136,7 +136,7 @@ public:
 
 	//
 	// Poll for the given transaction asynchronously. When polling returns success, the transaction is finalized automatically
-	// according to https://privacyidea.readthedocs.io/en/latest/configuration/authentication_modes.html#outofband-mode
+	// according to https://gruppenmfa.readthedocs.io/en/latest/configuration/authentication_modes.html#outofband-mode
 	// After that, the callback function is called with the result
 	//
 	void PollTransactionAsync(std::wstring username, std::wstring domain, std::wstring upn, std::string transactionId,
@@ -144,7 +144,7 @@ public:
 
 	//
 	// Poll for a transaction_id. If this returns success, the transaction must be finalized by calling validate/check with the username, transaction_id and an EMPTY pass parameter.
-	// https://privacyidea.readthedocs.io/en/latest/configuration/authentication_modes.html#outofband-mode
+	// https://gruppenmfa.readthedocs.io/en/latest/configuration/authentication_modes.html#outofband-mode
 	//
 	bool PollTransaction(std::string transactionId);
 

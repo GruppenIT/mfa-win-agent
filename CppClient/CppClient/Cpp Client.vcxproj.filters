@@ -30,7 +30,7 @@
     <ClCompile Include="OfflineHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PrivacyIDEA.cpp">
+    <ClCompile Include="MFAClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -53,7 +53,7 @@
     <ClInclude Include="PIConf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PrivacyIDEA.h">
+    <ClInclude Include="MFAClient.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\nlohmann\json.hpp">

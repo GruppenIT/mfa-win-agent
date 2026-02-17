@@ -1,7 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 **
 ** Copyright	2012 Dominik Pretzsch
-**				2017 NetKnights GmbH
+**				2017 Gruppen it Security
 **
 ** Author		Dominik Pretzsch
 **				Nils Behlen

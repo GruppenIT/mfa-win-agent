@@ -3,7 +3,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 **
 ** Copyright	2012 Dominik Pretzsch
-**				2017 NetKnights GmbH
+**				2017 Gruppen it Security
 **
 ** Author		Dominik Pretzsch
 **				Nils Behlen
@@ -228,7 +228,7 @@
 		<Property Id="AUTOLOGON_PASSWORD">
 			<RegistrySearch Id="SearchAutologonPassword" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="autologon_password" Win64="$(var.Win64)" Type="raw" />
 		</Property>
-		<!-- MFA-ZEROBOX AGENT MANAGEMENT PROPERTIES -->
+		<!-- GRUPPENMFA AGENT MANAGEMENT PROPERTIES -->
 		<Property Id="API_KEY">
 			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="api_key" Win64="$(var.Win64)" Type="raw" />
 		</Property>
@@ -238,7 +238,7 @@
 		<Property Id="HEARTBEAT_INTERVAL">
 			<RegistrySearch Id="SearchHeartbeatInterval" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="heartbeat_interval" Win64="$(var.Win64)" Type="raw" />
 		</Property>
-		<!-- END MFA-ZEROBOX AGENT MANAGEMENT PROPERTIES -->
+		<!-- END GRUPPENMFA AGENT MANAGEMENT PROPERTIES -->
 
 		<!-- Directory definitions -->
 		<Directory Id="TARGETDIR" Name="SourceDir">
@@ -392,12 +392,12 @@
 						<RegistryValue Name="localesPath" Type="string" Value="[$(var.PlatformProgramDataFolder)]$(var.Publisher)\$(var.ProductFolderName)\locales" />
 						<!-- END LOCALIZATION -->
 
-						<!-- MFA-ZEROBOX AGENT MANAGEMENT -->
+						<!-- GRUPPENMFA AGENT MANAGEMENT -->
 						<RegistryValue Name="api_key" Type="string" Value="[API_KEY]" />
 						<RegistryValue Name="agent_id" Type="string" Value="[AGENT_ID]" />
 						<RegistryValue Name="heartbeat_interval" Type="string" Value="[HEARTBEAT_INTERVAL]" />
 						<RegistryValue Name="config_version" Type="string" Value="" />
-						<!-- END MFA-ZEROBOX AGENT MANAGEMENT -->
+						<!-- END GRUPPENMFA AGENT MANAGEMENT -->
 					</RegistryKey>
 					<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Action="removeOnUninstall" />
 					<!-- END Configuration values -->

@@ -17,7 +17,7 @@ on:
           - Debug
 
 env:
-  SOLUTION_FILE: MFA-Zerobox-CredentialProvider.sln
+  SOLUTION_FILE: GruppenMFA-CredentialProvider.sln
   PLATFORM: x64
   CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
   # libfido2 prebuilt archive - upload as a GitHub Release asset in this repo
@@ -211,7 +211,7 @@ jobs:
       - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:
-          name: MFAZeroboxCredentialProvider-${{ env.CONFIGURATION }}-${{ env.PLATFORM }}
+          name: GruppenMFACredentialProvider-${{ env.CONFIGURATION }}-${{ env.PLATFORM }}
           path: WiXSetup/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/**/*.msi
           if-no-files-found: error
 

@@ -1,15 +1,15 @@
-The privacyIDEA Credential Provider adds multifactor authentication to the Windows Desktop or Server login.
+The GruppenMFA Credential Provider adds multifactor authentication to the Windows Desktop or Server login.
 
-The Credential Provider communicates with the privacyIDEA authentication system via REST API.
+The Credential Provider communicates with the GruppenMFA authentication system via REST API.
 
-[privacyIDEA is an open source two factor authentication system](https://github.com/privacyidea/privacyidea)
+[GruppenMFA is an open source two factor authentication system](https://github.com/gruppenmfa/gruppenmfa)
 
 ### Features
 * FIDO Authentication with Passkey/WebAuthn
     - Usernameless
     - Offline
     - With RDP
-* Push Token with the [privacyIDEA Authenticator App](https://github.com/privacyidea/pi-authenticator)
+* Push Token with the [GruppenMFA Authenticator App](https://github.com/gruppenmfa/pi-authenticator)
 * OTP Token like HOTP, TOTP, Email or SMS
 * Configurable usage depending on scenario (Logon, Unlock with RDP or local)
 * Fallback/recovery options
@@ -21,12 +21,12 @@ The Credential Provider communicates with the privacyIDEA authentication system 
 ### Test Version and Enterprise Support
 If you just want to test the software, an MSI is available in the release section as well as a test subscription.
 
-[Enterprise Support and an extended Subscription](https://netknights.it/en/produkte/privacyidea-credential-provider/) is provided by NetKnights, who also advance the development of this project and privacyIDEA.
+[Enterprise Support and an extended Subscription](https://gruppenit.com.br) is provided by Gruppen it Security, who also advance the development of this project and GruppenMFA.
 
 ### Documentation
-The documentation can be found in ``/doc``, most notably the [configuration options](https://github.com/privacyidea/privacyidea-credential-provider/blob/master/doc/configuration.rst).
+The documentation can be found in ``/doc``, most notably the [configuration options](https://github.com/gruppenmfa/gruppenmfa-credential-provider/blob/master/doc/configuration.rst).
 
-The complete documentation can be found at [readthedocs.io](https://privacyidea-credential-provider.readthedocs.io/en/latest/index.html).
+The complete documentation can be found at [readthedocs.io](https://gruppenmfa-credential-provider.readthedocs.io/en/latest/index.html).
 
 ### Dependencies
 This project requires [json.hpp](https://github.com/nlohmann/json) in ``CppClient/nlohmann/json.hpp``.

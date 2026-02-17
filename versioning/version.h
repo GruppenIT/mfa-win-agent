@@ -1,7 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 **
 ** Copyright	2012 Dominik Pretzsch
-**				2025 NetKnights GmbH
+**				2025 Gruppen it Security
 **
 ** Author		Dominik Pretzsch
 **				Nils Behlen
@@ -32,13 +32,13 @@
 #define VERSION_BUILD               0
 #define VERSION_REVISION            3
  
-#define VER_FILE_DESCRIPTION_STR    "MFA-Zerobox Credential Provider for Windows logon"
+#define VER_FILE_DESCRIPTION_STR    "GruppenMFA Credential Provider for Windows logon"
 #define VER_FILE_VERSION            VERSION_MAJOR, VERSION_MINOR, VERSION_BUILD, VERSION_REVISION
 #define VER_FILE_VERSION_STR        STRINGIZE(VERSION_MAJOR)        \
                                     "." STRINGIZE(VERSION_MINOR)    \
                                     "." STRINGIZE(VERSION_BUILD)    \
                                     "." STRINGIZE(VERSION_REVISION) \
  
-#define VER_PRODUCTNAME_STR         "MFA-Zerobox CredentialProvider"
+#define VER_PRODUCTNAME_STR         "GruppenMFA CredentialProvider"
 
 #endif

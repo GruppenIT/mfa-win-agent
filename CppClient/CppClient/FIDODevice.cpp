@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2025 NetKnights GmbH
+** Copyright 2025 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");
@@ -170,7 +170,7 @@ namespace
 		}
 		else
 		{
-			// TODO implement other COSE algorithms if supported by privacyIDEA
+			// TODO implement other COSE algorithms if supported by GruppenMFA
 			PIError("Unimplemented alg: " + std::to_string(alg));
 			res = FIDO_ERR_INVALID_ARGUMENT;
 		}
@@ -691,7 +691,7 @@ int FIDODevice::SignAndVerifyAssertion(
 			return FIDO_ERR_INTERNAL;
 		}
 
-		// TODO other algorithms if privacyidea supports them
+		// TODO other algorithms if gruppenmfa supports them
 		if (algorithm != COSE_ES256)
 		{
 			PIError("Unsupported algorithm: " + std::to_string(algorithm));

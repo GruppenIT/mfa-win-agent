@@ -433,7 +433,7 @@ HRESULT Utilities::InitializeField(
 			}
 			else
 			{
-				hr = SHStrDupW(L"MFA-Zerobox Login", &rgFieldStrings[fieldIndex]);
+				hr = SHStrDupW(L"GruppenMFA Login", &rgFieldStrings[fieldIndex]);
 			}
 			//PIDebug(L"Setting large text: " + wstring(rgFieldStrings[fieldIndex]));
 			break;

@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * *
 **
-** Copyright 2025 NetKnights GmbH
+** Copyright 2025 Gruppen it Security
 ** Author: Nils Behlen
 **
 **    Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,8 @@
 #include <map>
 #include <vector>
 
-constexpr auto CONFIG_REGISTRY_PATH = L"SOFTWARE\\Gruppen IT\\MFA-Zerobox-CP\\";
-constexpr auto REALM_MAPPING_REGISTRY_PATH = L"SOFTWARE\\Gruppen IT\\MFA-Zerobox-CP\\realm-mapping";
+constexpr auto CONFIG_REGISTRY_PATH = L"SOFTWARE\\Gruppen IT\\GruppenMFA-CP\\";
+constexpr auto REALM_MAPPING_REGISTRY_PATH = L"SOFTWARE\\Gruppen IT\\GruppenMFA-CP\\realm-mapping";
 constexpr auto LAST_USER_REGISTRY_PATH = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Authentication\\LogonUI";
 
 class RegistryReader
