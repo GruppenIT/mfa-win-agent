@@ -228,7 +228,17 @@
 		<Property Id="AUTOLOGON_PASSWORD">
 			<RegistrySearch Id="SearchAutologonPassword" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="autologon_password" Win64="$(var.Win64)" Type="raw" />
 		</Property>
-		<!-- END PROPERTIES -->
+		<!-- MFA-ZEROBOX AGENT MANAGEMENT PROPERTIES -->
+		<Property Id="API_KEY">
+			<RegistrySearch Id="SearchApiKey" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="api_key" Win64="$(var.Win64)" Type="raw" />
+		</Property>
+		<Property Id="AGENT_ID">
+			<RegistrySearch Id="SearchAgentId" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="agent_id" Win64="$(var.Win64)" Type="raw" />
+		</Property>
+		<Property Id="HEARTBEAT_INTERVAL">
+			<RegistrySearch Id="SearchHeartbeatInterval" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="heartbeat_interval" Win64="$(var.Win64)" Type="raw" />
+		</Property>
+		<!-- END MFA-ZEROBOX AGENT MANAGEMENT PROPERTIES -->
 
 		<!-- Directory definitions -->
 		<Directory Id="TARGETDIR" Name="SourceDir">
@@ -298,7 +308,7 @@
 						</RegistryKey>
 					</RegistryKey>
 					<RemoveRegistryKey Root="HKCR" Key="CLSID\{$(var.ProviderRegistryGUID)}" Action="removeOnUninstall" />
-					<RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{$(var.ProviderRegistryGUID)}" Type="string" Value="PrivacyIDEA$(var.CredentialProvider.TargetName)" />
+					<RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{$(var.ProviderRegistryGUID)}" Type="string" Value="$(var.CredentialProvider.TargetName)" />
 					<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{$(var.ProviderRegistryGUID)}" Action="removeOnUninstall" />
 					<!-- Configuration values (from dialogs/registry/unattended) -->
 					<RegistryKey Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" ForceCreateOnInstall="yes">
@@ -381,6 +391,13 @@
 						<!-- LOCALIZATION-->
 						<RegistryValue Name="localesPath" Type="string" Value="[$(var.PlatformProgramDataFolder)]$(var.Publisher)\$(var.ProductFolderName)\locales" />
 						<!-- END LOCALIZATION -->
+
+						<!-- MFA-ZEROBOX AGENT MANAGEMENT -->
+						<RegistryValue Name="api_key" Type="string" Value="[API_KEY]" />
+						<RegistryValue Name="agent_id" Type="string" Value="[AGENT_ID]" />
+						<RegistryValue Name="heartbeat_interval" Type="string" Value="[HEARTBEAT_INTERVAL]" />
+						<RegistryValue Name="config_version" Type="string" Value="" />
+						<!-- END MFA-ZEROBOX AGENT MANAGEMENT -->
 					</RegistryKey>
 					<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Action="removeOnUninstall" />
 					<!-- END Configuration values -->

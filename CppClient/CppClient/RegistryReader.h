@@ -21,8 +21,8 @@
 #include <map>
 #include <vector>
 
-constexpr auto CONFIG_REGISTRY_PATH = L"SOFTWARE\\Netknights GmbH\\PrivacyIDEA-CP\\";
-constexpr auto REALM_MAPPING_REGISTRY_PATH = L"SOFTWARE\\Netknights GmbH\\PrivacyIDEA-CP\\realm-mapping";
+constexpr auto CONFIG_REGISTRY_PATH = L"SOFTWARE\\Gruppen IT\\MFA-Zerobox-CP\\";
+constexpr auto REALM_MAPPING_REGISTRY_PATH = L"SOFTWARE\\Gruppen IT\\MFA-Zerobox-CP\\realm-mapping";
 constexpr auto LAST_USER_REGISTRY_PATH = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Authentication\\LogonUI";
 
 class RegistryReader
@@ -43,4 +43,7 @@ public:
 	int GetInt(std::wstring name) noexcept;
 
 	std::vector<std::wstring> GetMultiSZ(const std::wstring& valueName) noexcept;
+
+	// Write a string value to the registry
+	bool SetWString(const std::wstring& name, const std::wstring& value) noexcept;
 };

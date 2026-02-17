@@ -17,7 +17,7 @@
 **
 ** * * * * * * * * * * * * * * * * * * */
 
-#include "PrivacyIDEA.h"
+#include "MFAClient.h"
 #include "Challenge.h"
 #include "Convert.h"
 #include <thread>
@@ -29,7 +29,7 @@ using namespace std;
 constexpr int POLL_THREAD_TIMEOUT_SECONDS = 300; // 5 minutes
 constexpr int POLL_THREAD_SLEEP_MILLISECONDS = 500;
 
-std::optional<FIDOSignRequest> PrivacyIDEA::GetOfflineFIDOSignRequest()
+std::optional<FIDOSignRequest> MFAClient::GetOfflineFIDOSignRequest()
 {
 	std::optional<FIDOSignRequest> ret = std::nullopt;
 
@@ -58,7 +58,7 @@ std::optional<FIDOSignRequest> PrivacyIDEA::GetOfflineFIDOSignRequest()
 }
 
 // Check if there is a mapping for the given domain or - if not - a default realm is set
-HRESULT PrivacyIDEA::AppendRealm(std::wstring domain, std::map<std::string, std::string>& parameters)
+HRESULT MFAClient::AppendRealm(std::wstring domain, std::map<std::string, std::string>& parameters)
 {
 	wstring realm = L"";
 	try
@@ -83,7 +83,7 @@ HRESULT PrivacyIDEA::AppendRealm(std::wstring domain, std::map<std::string, std:
 	return S_OK;
 }
 
-HRESULT PrivacyIDEA::EvaluateResponse(std::string response, _Inout_ PIResponse& responseObj)
+HRESULT MFAClient::EvaluateResponse(std::string response, _Inout_ PIResponse& responseObj)
 {
 	auto offlineData = _parser.ParseResponseForOfflineData(response);
 	if (!offlineData.empty())
@@ -97,7 +97,7 @@ HRESULT PrivacyIDEA::EvaluateResponse(std::string response, _Inout_ PIResponse& 
 	return hr;
 }
 
-void PrivacyIDEA::PollThread(
+void MFAClient::PollThread(
 	const std::wstring& username,
 	const std::wstring& domain,
 	const std::wstring& upn,
@@ -134,7 +134,7 @@ void PrivacyIDEA::PollThread(
 	}
 }
 
-HRESULT PrivacyIDEA::ValidateCheck(
+HRESULT MFAClient::ValidateCheck(
 	const std::wstring& username,
 	const std::wstring& domain,
 	const std::wstring& otp,
@@ -181,7 +181,7 @@ HRESULT PrivacyIDEA::ValidateCheck(
 	return EvaluateResponse(response, responseObj);
 }
 
-std::string PrivacyIDEA::SendRequestWithFallback(
+std::string MFAClient::SendRequestWithFallback(
 	const std::string& endpoint,
 	const std::map<std::string, std::string>& parameters,
 	const std::map<std::string, std::string>& headers,
@@ -201,7 +201,7 @@ std::string PrivacyIDEA::SendRequestWithFallback(
 	return response;
 }
 
-HRESULT PrivacyIDEA::ValidateCheckFIDO(const std::wstring& username,
+HRESULT MFAClient::ValidateCheckFIDO(const std::wstring& username,
 	const std::wstring& domain, const FIDOSignResponse& fidoSignResponse,
 	const std::string& origin,
 	PIResponse& responseObj,
@@ -260,7 +260,7 @@ HRESULT PrivacyIDEA::ValidateCheckFIDO(const std::wstring& username,
 	return EvaluateResponse(response, responseObj);
 }
 
-HRESULT PrivacyIDEA::ValidateCheckCompletePasskeyRegistration(
+HRESULT MFAClient::ValidateCheckCompletePasskeyRegistration(
 	const std::string& transactionId,
 	const std::string& serial,
 	const std::wstring& username,
@@ -288,7 +288,7 @@ HRESULT PrivacyIDEA::ValidateCheckCompletePasskeyRegistration(
 	return EvaluateResponse(response, piresponse);
 }
 
-HRESULT PrivacyIDEA::ValidateInitialize(PIResponse& response, const std::string& type)
+HRESULT MFAClient::ValidateInitialize(PIResponse& response, const std::string& type)
 {
 	PIDebug(__FUNCTION__);
 	map<string, string> parameters = { { "type", type } };
@@ -300,7 +300,7 @@ HRESULT PrivacyIDEA::ValidateInitialize(PIResponse& response, const std::string&
 
 @return PI_OFFLINE_NO_OFFLINE_DATA, PI_OFFLINE_DATA_NO_OTPS_LEFT, S_OK, E_FAIL
 */
-HRESULT PrivacyIDEA::OfflineCheck(const std::wstring& username, const std::wstring& otp, __out std::string& serialUsed)
+HRESULT MFAClient::OfflineCheck(const std::wstring& username, const std::wstring& otp, __out std::string& serialUsed)
 {
 	PIDebug(__FUNCTION__);
 	string szUsername = Convert::ToString(username);
@@ -310,7 +310,7 @@ HRESULT PrivacyIDEA::OfflineCheck(const std::wstring& username, const std::wstri
 	return hr;
 }
 
-HRESULT PrivacyIDEA::OfflineRefill(const std::wstring& username, const std::wstring& lastOTP, const std::string& serial)
+HRESULT MFAClient::OfflineRefill(const std::wstring& username, const std::wstring& lastOTP, const std::string& serial)
 {
 	PIDebug(__FUNCTION__);
 	string refilltoken;
@@ -346,7 +346,7 @@ HRESULT PrivacyIDEA::OfflineRefill(const std::wstring& username, const std::wstr
 	return hr;
 }
 
-HRESULT PrivacyIDEA::OfflineRefillFIDO(const std::wstring& username, const std::string& serial)
+HRESULT MFAClient::OfflineRefillFIDO(const std::wstring& username, const std::string& serial)
 {
 	PIDebug(__FUNCTION__);
 	string refilltoken;
@@ -396,14 +396,14 @@ HRESULT PrivacyIDEA::OfflineRefillFIDO(const std::wstring& username, const std::
 	return hr;
 }
 
-bool PrivacyIDEA::StopPoll()
+bool MFAClient::StopPoll()
 {
 	PIDebug("Stopping poll thread...");
 	_runPoll.store(false);
 	return true;
 }
 
-void PrivacyIDEA::PollTransactionAsync(
+void MFAClient::PollTransactionAsync(
 	std::wstring username,
 	std::wstring domain,
 	std::wstring upn,
@@ -411,11 +411,11 @@ void PrivacyIDEA::PollTransactionAsync(
 	std::function<void(const PIResponse&)> callback)
 {
 	_runPoll.store(true);
-	std::thread t(&PrivacyIDEA::PollThread, this, username, domain, upn, transactionId, callback);
+	std::thread t(&MFAClient::PollThread, this, username, domain, upn, transactionId, callback);
 	t.detach();
 }
 
-bool PrivacyIDEA::PollTransaction(std::string transactionId)
+bool MFAClient::PollTransaction(std::string transactionId)
 {
 	map<string, string> parameters = {
 		{"transaction_id", transactionId }
@@ -426,7 +426,7 @@ bool PrivacyIDEA::PollTransaction(std::string transactionId)
 	return _parser.ParsePollTransaction(response);
 }
 
-bool PrivacyIDEA::CancelEnrollmentViaMultichallenge(std::string transactionId)
+bool MFAClient::CancelEnrollmentViaMultichallenge(std::string transactionId)
 {
 	map<string, string> parameters = {
 		{"transaction_id", transactionId },
@@ -444,7 +444,7 @@ bool PrivacyIDEA::CancelEnrollmentViaMultichallenge(std::string transactionId)
 }
 
 
-bool PrivacyIDEA::OfflineFIDODataExistsFor(std::wstring username)
+bool MFAClient::OfflineFIDODataExistsFor(std::wstring username)
 {
 	string szUsername = Convert::ToString(username);
 	return !offlineHandler.GetFIDODataFor(szUsername).empty();

@@ -63,10 +63,10 @@ public:
 
 	bool IsVersionHigherOrEqual(int major, int minor = 0, int patch = 0) const;
 
-	int privacyIDEAVersionMajor = 99;
-	int privacyIDEAVersionMinor = 99;
-	int privacyIDEAVersionPatch = 99;
-	std::string privacyIDEAVersionSuffix = ""; // like dev0, beta1
+	int serverVersionMajor = 99;
+	int serverVersionMinor = 99;
+	int serverVersionPatch = 99;
+	std::string serverVersionSuffix = ""; // like dev0, beta1
 
 	bool isEnrollViaMultichallenge = false; // true if the response is a multichallenge response, e.g. for FIDO2 registration
 	bool isEnrollCancellable = false; // true if the enrollment can be cancelled by the user

@@ -34,7 +34,7 @@ namespace Shared
 			return false;
 		}
 
-		RegistryReader rr(L"SOFTWARE\\Netknights GmbH\\PrivacyIDEA-CP\\");
+		RegistryReader rr(L"SOFTWARE\\Gruppen IT\\MFA-Zerobox-CP\\");
 		std::wstring entry;
 		const bool isRemote = Shared::IsCurrentSessionRemote();
 		switch (cpus)

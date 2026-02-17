@@ -2,7 +2,7 @@
 #include "helpers.h"
 #include "scenario.h"
 #include "guid.h"
-#include "PrivacyIDEA.h"
+#include "MFAClient.h"
 #include "Convert.h"
 #include "Translator.h"
 #include <stdexcept>
@@ -433,7 +433,7 @@ HRESULT Utilities::InitializeField(
 			}
 			else
 			{
-				hr = SHStrDupW(L"privacyIDEA Login", &rgFieldStrings[fieldIndex]);
+				hr = SHStrDupW(L"MFA-Zerobox Login", &rgFieldStrings[fieldIndex]);
 			}
 			//PIDebug(L"Setting large text: " + wstring(rgFieldStrings[fieldIndex]));
 			break;

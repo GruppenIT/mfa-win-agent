@@ -25,7 +25,7 @@
 #include "Dll.h"
 #include "Utilities.h"
 #include "Configuration.h"
-#include "PrivacyIDEA.h"
+#include "MFAClient.h"
 #include "FIDODevice.h"
 #include <scenario.h>
 #include <unknwn.h>
@@ -173,12 +173,12 @@ private:
 	wchar_t* _rgFieldStrings[FID_NUM_FIELDS];
 	ICredentialProviderCredentialEvents* _pCredProvCredentialEvents = nullptr;
 	DWORD _dwComboIndex;
-	PrivacyIDEA	_privacyIDEA;
+	MFAClient	_mfaClient;
 	std::shared_ptr<Configuration> _config;
 	Utilities _util;
 	std::wstring _initialDomain;
 	int _lastStatus = S_OK;
-	bool _privacyIDEASuccess = false;
+	bool _mfaSuccess = false;
 	bool _fidoDeviceSearchCancelled = false;
 	bool _modeSwitched = false;
 	std::optional<FIDOSignRequest> _passkeyChallenge = std::nullopt;

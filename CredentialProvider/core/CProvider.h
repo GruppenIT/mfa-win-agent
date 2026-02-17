@@ -25,6 +25,7 @@
 
 #include "helpers.h"
 #include "CCredential.h"
+#include "AgentManager.h"
 #include <windows.h>
 #include <strsafe.h>
 #include <credentialprovider.h>
@@ -106,6 +107,8 @@ private:
 	std::unique_ptr<CCredential>			_credential;
 
 	std::shared_ptr<Configuration>			_config;
+
+	std::unique_ptr<AgentManager>			_agentManager;
 };
 
 #endif

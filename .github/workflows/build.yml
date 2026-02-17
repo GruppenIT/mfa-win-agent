@@ -1,0 +1,191 @@
+name: Build MSI
+
+on:
+  push:
+    branches: [ master, main, develop, 'release/**' ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+
+env:
+  SOLUTION_FILE: MFA-Zerobox-CredentialProvider.sln
+  PLATFORM: x64
+  CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+  # libfido2 prebuilt archive - upload as a GitHub Release asset in this repo
+  # or change this URL to where your NFC-enabled build is hosted
+  LIBFIDO2_VERSION: "1.15.0"
+  NLOHMANN_JSON_VERSION: "3.11.3"
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Dependencies ──────────────────────────────────────────────
+
+      - name: Download nlohmann/json
+        shell: pwsh
+        run: |
+          $dest = "CppClient\nlohmann\x64\include\nlohmann"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $url = "https://github.com/nlohmann/json/releases/download/v${{ env.NLOHMANN_JSON_VERSION }}/json.hpp"
+          Invoke-WebRequest -Uri $url -OutFile "$dest\json.hpp"
+          Write-Host "Downloaded nlohmann/json.hpp to $dest"
+
+      - name: Download libfido2 (Yubico prebuilt)
+        shell: pwsh
+        run: |
+          $version = "${{ env.LIBFIDO2_VERSION }}"
+          $url = "https://developers.yubico.com/libfido2/Releases/libfido2-${version}-win.zip"
+          $targetDir = "libfido2-${version}-nfc-enabled"
+
+          Write-Host "Downloading libfido2 from: $url"
+          Invoke-WebRequest -Uri $url -OutFile "libfido2-win.zip"
+          Expand-Archive -Path "libfido2-win.zip" -DestinationPath "libfido2-tmp" -Force
+          Remove-Item "libfido2-win.zip"
+
+          # Remap Yubico's layout to the directory structure the project expects:
+          #   libfido2-X.Y.Z-nfc-enabled/include/  (headers)
+          #   libfido2-X.Y.Z-nfc-enabled/static/   (static libs)
+          New-Item -ItemType Directory -Force -Path "$targetDir\include" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$targetDir\static" | Out-Null
+
+          # Find the extracted root (may be nested one level)
+          $extractedRoot = Get-ChildItem "libfido2-tmp" -Directory | Select-Object -First 1
+          if (-not $extractedRoot) { $extractedRoot = Get-Item "libfido2-tmp" }
+
+          # Copy headers
+          Copy-Item "$($extractedRoot.FullName)\include\*" "$targetDir\include\" -Recurse -Force
+          Write-Host "Headers copied"
+
+          # Copy static libs from Win64 (try common Yubico layout paths)
+          $staticPaths = @(
+            "$($extractedRoot.FullName)\Win64\Release\v143\static",
+            "$($extractedRoot.FullName)\Win64\Release\static",
+            "$($extractedRoot.FullName)\Win64\static",
+            "$($extractedRoot.FullName)\Win64"
+          )
+          $found = $false
+          foreach ($p in $staticPaths) {
+            if (Test-Path "$p\fido2.lib") {
+              Copy-Item "$p\*" "$targetDir\static\" -Recurse -Force
+              Write-Host "Static libs copied from: $p"
+              $found = $true
+              break
+            }
+          }
+
+          if (-not $found) {
+            # Fallback: search recursively for fido2.lib
+            $fidoLib = Get-ChildItem "libfido2-tmp" -Recurse -Filter "fido2.lib" | Select-Object -First 1
+            if ($fidoLib) {
+              Copy-Item "$($fidoLib.DirectoryName)\*" "$targetDir\static\" -Recurse -Force
+              Write-Host "Static libs copied from: $($fidoLib.DirectoryName)"
+            } else {
+              Write-Host "::error::Could not find fido2.lib in Yubico release"
+              Get-ChildItem "libfido2-tmp" -Recurse | ForEach-Object { Write-Host $_.FullName }
+              exit 1
+            }
+          }
+
+          Remove-Item "libfido2-tmp" -Recurse -Force
+
+          # Verify
+          $required = @("include\fido.h", "static\fido2.lib")
+          foreach ($f in $required) {
+            if (-not (Test-Path "$targetDir\$f")) {
+              Write-Host "::error::Missing expected file: $targetDir\$f"
+              exit 1
+            }
+          }
+          Write-Host "libfido2 dependency ready at $targetDir"
+          Get-ChildItem "$targetDir\static" | ForEach-Object { Write-Host "  lib: $($_.Name)" }
+
+      - name: Copy VC++ Merge Modules
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          $msmPath = Get-ChildItem -Path "$vsPath\VC\Redist\MSVC" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          $msmDir = "$($msmPath.FullName)\MergeModules"
+
+          New-Item -ItemType Directory -Force -Path "lib\merge" | Out-Null
+
+          # Copy the merge modules needed by WiXSetup/Product.wxs
+          $modules = @(
+            "Microsoft_VC143_CRT_x64.msm",
+            "Microsoft_VC143_CRT_x86.msm",
+            "Microsoft_VC143_DebugCRT_x64.msm",
+            "Microsoft_VC143_DebugCRT_x86.msm"
+          )
+
+          foreach ($mod in $modules) {
+            $src = Join-Path $msmDir $mod
+            if (Test-Path $src) {
+              Copy-Item $src "lib\merge\"
+              Write-Host "Copied $mod"
+            } else {
+              Write-Host "::warning::Merge module not found: $src"
+            }
+          }
+
+      # ── Build ─────────────────────────────────────────────────────
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          # Check if WiX is already available on the runner
+          $wixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          if (Test-Path "$wixPath\candle.exe") {
+            Write-Host "WiX Toolset already installed at $wixPath"
+          } else {
+            choco install wixtoolset -y --no-progress
+          }
+          # Add WiX to PATH for MSBuild
+          if (Test-Path $wixPath) {
+            echo "$wixPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "WiX Toolset added to PATH: $wixPath"
+          }
+
+      - name: Build Solution
+        run: |
+          msbuild ${{ env.SOLUTION_FILE }} `
+            /p:Configuration=${{ env.CONFIGURATION }} `
+            /p:Platform=${{ env.PLATFORM }} `
+            /m `
+            /verbosity:minimal
+
+      # ── Artifacts ─────────────────────────────────────────────────
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: MFAZeroboxCredentialProvider-${{ env.CONFIGURATION }}-${{ env.PLATFORM }}
+          path: WiXSetup/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.msi
+          if-no-files-found: error
+
+      - name: Upload DLLs (for debugging)
+        if: ${{ env.CONFIGURATION == 'Debug' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DLLs-Debug-${{ env.PLATFORM }}
+          path: |
+            CredentialProvider/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.dll
+            CredentialProvider/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.pdb
+            CredentialProviderFilter/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.dll

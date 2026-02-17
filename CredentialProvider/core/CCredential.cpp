@@ -50,7 +50,7 @@ const std::wstring IMAGE_BASE64_PREFIX = L"data:image/png;base64,";
 using namespace std;
 
 CCredential::CCredential(std::shared_ptr<Configuration> c) :
-	_config(c), _util(_config), _privacyIDEA(c->piconfig)
+	_config(c), _util(_config), _mfaClient(c->piconfig)
 {
 	_cRef = 1;
 	_pCredProvCredentialEvents = nullptr;
@@ -178,7 +178,7 @@ HRESULT CCredential::Initialize(
 
 HRESULT CCredential::StopPoll()
 {
-	_privacyIDEA.StopPoll();
+	_mfaClient.StopPoll();
 	return S_OK;
 }
 
@@ -269,7 +269,7 @@ HRESULT CCredential::SetSelected(__out BOOL* pbAutoLogon)
 			hr = SetMode(Mode::CHANGE_PASSWORD);
 			if (_config->provider.cpu == CPUS_UNLOCK_WORKSTATION)
 			{
-				_config->bypassPrivacyIDEA = true;
+				_config->bypassMFA = true;
 			}
 		}
 		else
@@ -555,7 +555,7 @@ HRESULT CCredential::SetOfflineInfo(std::string username)
 
 	if (!username.empty())
 	{
-		auto offlineInfo = _privacyIDEA.offlineHandler.GetTokenInfo(username);
+		auto offlineInfo = _mfaClient.offlineHandler.GetTokenInfo(username);
 		if (!offlineInfo.empty())
 		{
 			wstring message = _util.GetText(TEXT_AVAILABLE_OFFLINE_TOKEN);
@@ -710,12 +710,12 @@ HRESULT CCredential::SetMode(Mode mode)
 			smallText = _util.GetText(TEXT_ENTER_USERNAME_PASSWORD);
 			break;
 		}
-		case Mode::PRIVACYIDEA:
+		case Mode::MFA_OTP:
 		{
 			// Set the submit button next to the OTP field
 			_pCredProvCredentialEvents->SetFieldState(this, FID_OTP, CPFS_DISPLAY_IN_SELECTED_TILE);
 			_pCredProvCredentialEvents->SetFieldSubmitButton(this, FID_SUBMIT_BUTTON, FID_OTP);
-			hr = _util.SetFieldStatePairBatch(this, _pCredProvCredentialEvents, s_rgScenarioPrivacyIDEA);
+			hr = _util.SetFieldStatePairBatch(this, _pCredProvCredentialEvents, s_rgScenarioMFAOTP);
 			_pCredProvCredentialEvents->SetFieldString(this, FID_FIDO_ONLINE, _util.GetText(TEXT_USE_ONLINE_FIDO).c_str());
 
 			// Only set the message of the last server response if that response has challenges or errors.
@@ -902,13 +902,13 @@ HRESULT CCredential::SetMode(Mode mode)
 	}
 
 	// FIDO Offline TODO when to show the link? only first step?
-	auto fidoOfflineData = _privacyIDEA.offlineHandler.GetAllFIDOData();
+	auto fidoOfflineData = _mfaClient.offlineHandler.GetAllFIDOData();
 	if (!fidoOfflineData.empty())
 	{
 		PIDebug("Enabling offline fido link because there is offline data");
 		_pCredProvCredentialEvents->SetFieldState(this, FID_FIDO_OFFLINE, CPFS_DISPLAY_IN_SELECTED_TILE);
 	}
-	else if (_privacyIDEA.OfflineFIDODataExistsFor(_config->credential.username) && _config->IsFirstStep())
+	else if (_mfaClient.OfflineFIDODataExistsFor(_config->credential.username) && _config->IsFirstStep())
 	{
 		_pCredProvCredentialEvents->SetFieldState(this, FID_FIDO_OFFLINE, CPFS_DISPLAY_IN_SELECTED_TILE);
 		PIDebug("Enabling offline fido link for user");
@@ -922,11 +922,11 @@ HRESULT CCredential::SetMode(Mode mode)
 	// Disable offline FIDO and offline info in privacyidea step, except when webAuthnOfflineSecondStep is enabled
 	// in that case, the offline link will have the online link text in the second step, so that offline use
 	// looks just like the online use.
-	if ((mode == Mode::PRIVACYIDEA || mode > Mode::SEC_KEY_ANY) && !_config->webAuthnOfflineSecondStep)
+	if ((mode == Mode::MFA_OTP || mode > Mode::SEC_KEY_ANY) && !_config->webAuthnOfflineSecondStep)
 	{
 		_pCredProvCredentialEvents->SetFieldState(this, FID_FIDO_OFFLINE, CPFS_HIDDEN);
 	}
-	if ((mode == Mode::PRIVACYIDEA || mode > Mode::SEC_KEY_ANY) && _config->webAuthnOfflineSecondStep && !enableFIDOOnline)
+	if ((mode == Mode::MFA_OTP || mode > Mode::SEC_KEY_ANY) && _config->webAuthnOfflineSecondStep && !enableFIDOOnline)
 	{
 		_pCredProvCredentialEvents->SetFieldString(this, FID_FIDO_OFFLINE, _util.GetText(TEXT_USE_ONLINE_FIDO).c_str());
 	}
@@ -987,7 +987,7 @@ HRESULT CCredential::FullReset()
 	_config->lastResponse = {};
 	_config->lastTransactionId = "";
 	_config->pushAuthenticationSuccess = false;
-	_privacyIDEASuccess = false;
+	_mfaSuccess = false;
 	_lastStatus = S_OK;
 	_enrollmentInProgress = false;
 	_pollEnrollmentInProgress = false;
@@ -1031,7 +1031,7 @@ HRESULT CCredential::FullReset()
 HRESULT CCredential::ResetMode(bool resetToFirstStep)
 {
 	PIDebug("CCredential::ResetMode with resetToFirstStep=" + to_string(resetToFirstStep));
-	_privacyIDEA.StopPoll();
+	_mfaClient.StopPoll();
 	// If resetToFirstStep is true, the mode is reset to the first step regardless of the current mode.
 	if (resetToFirstStep)
 	{
@@ -1161,7 +1161,7 @@ HRESULT CCredential::CommandLinkClicked(__in DWORD dwFieldID)
 			// next mode, with or without PIN
 			_config->usePasskey = true;
 			PIResponse res;
-			const auto hr = _privacyIDEA.ValidateInitialize(res);
+			const auto hr = _mfaClient.ValidateInitialize(res);
 			if (FAILED(hr) || !res.passkeyChallenge)
 			{
 				// Just return, so when clicking the link nothing happens. The error is logged anyway.
@@ -1183,7 +1183,7 @@ HRESULT CCredential::CommandLinkClicked(__in DWORD dwFieldID)
 			if (!_config->usePasskey)
 			{
 				PIDebug("Switching to OTP mode");
-				SetMode(Mode::PRIVACYIDEA);
+				SetMode(Mode::MFA_OTP);
 				return S_OK;
 			}
 			else
@@ -1214,11 +1214,11 @@ HRESULT CCredential::CommandLinkClicked(__in DWORD dwFieldID)
 		PIDebug("Cancel enrollment link clicked");
 		if (!_config->lastTransactionId.empty())
 		{
-			if (_privacyIDEA.CancelEnrollmentViaMultichallenge(_config->lastTransactionId))
+			if (_mfaClient.CancelEnrollmentViaMultichallenge(_config->lastTransactionId))
 			{
 				_enrollmentInProgress = false;
 				_pollEnrollmentInProgress = false;
-				_privacyIDEASuccess = true;
+				_mfaSuccess = true;
 				_config->doAutoLogon = true;
 				_config->provider.pCredentialProviderEvents->CredentialsChanged(_config->provider.upAdviseContext);
 			}
@@ -1290,11 +1290,11 @@ HRESULT CCredential::GetSerialization(
 			_config->credential.username, _config->credential.newPassword1, _config->credential.domain);
 		_config->credential.passwordChanged = false;
 	}
-	// Normal authentication: Username, Password, PrivacyIDEA
+	// Normal authentication: Username, Password, MFA
 	else
 	{
-		// PrivacyIDEA
-		if (_privacyIDEASuccess == false && _config->pushAuthenticationSuccess == false)
+		// MFA
+		if (_mfaSuccess == false && _config->pushAuthenticationSuccess == false)
 		{
 			auto& lastResponse = _config->lastResponse;
 			// Continue with fido in the following cases:
@@ -1310,7 +1310,7 @@ HRESULT CCredential::GetSerialization(
 			// Alternatively, if webAuthnOfflineSecondStep is enabled, the user has offline FIDO data and the offlinePreferFIDO is set,
 			// continue with a FIDO mode aswell.
 			if (_config->webAuthnOfflinePreferred && _config->webAuthnOfflineSecondStep
-				&& _privacyIDEA.OfflineFIDODataExistsFor(_config->credential.username))
+				&& _mfaClient.OfflineFIDODataExistsFor(_config->credential.username))
 			{
 				continueWithFIDO = true;
 				_config->useOfflineFIDO = true; // Simulate the link click
@@ -1328,10 +1328,10 @@ HRESULT CCredential::GetSerialization(
 			if (_config->IsModeOneOf(Mode::USERNAME, Mode::USERNAMEPASSWORD, Mode::PASSWORD)
 				&& (_lastStatus == S_OK || _modeSwitched))
 			{
-				PIDebug("Moving to privacyIDEA step");
+				PIDebug("Moving to MFA step");
 				_modeSwitched = false;
 				_config->clearFields = false;
-				SetMode(continueWithFIDO ? SelectFIDOMode() : Mode::PRIVACYIDEA);
+				SetMode(continueWithFIDO ? SelectFIDOMode() : Mode::MFA_OTP);
 				*pcpgsr = CPGSR_NO_CREDENTIAL_NOT_FINISHED;
 				// For Mode::SEC_KEY_NO_DEVICE, Mode::SEC_KEY_NO_PIN or RDP (windows hello, also no PIN) we need to get to connect
 				// instantly to trigger the security key or windows hello on the source machine in case of RDP.
@@ -1344,8 +1344,8 @@ HRESULT CCredential::GetSerialization(
 			// Another challenge was triggered: repeat the privacyidea step
 			else if (lastResponse && !lastResponse->challenges.empty() && _lastStatus == S_OK)
 			{
-				PIDebug("Another challenge was triggered, repeating privacyIDEA step");
-				SetMode(continueWithFIDO ? SelectFIDOMode() : Mode::PRIVACYIDEA);
+				PIDebug("Another challenge was triggered, repeating MFA step");
+				SetMode(continueWithFIDO ? SelectFIDOMode() : Mode::MFA_OTP);
 				*pcpgsr = CPGSR_NO_CREDENTIAL_NOT_FINISHED;
 				if (continueWithFIDO && (_config->IsModeOneOf(Mode::SEC_KEY_NO_DEVICE, Mode::SEC_KEY_NO_PIN) || _config->isRemoteSession))
 				{
@@ -1372,7 +1372,7 @@ HRESULT CCredential::GetSerialization(
 			}
 			// Show an error message if authentication failed or there is an error
 			else if (_lastStatus != S_OK || (lastResponse && lastResponse->challenges.empty() && !lastResponse->value &&
-				_config->mode >= Mode::PRIVACYIDEA))
+				_config->mode >= Mode::MFA_OTP))
 			{
 				bool resetToFirstStep = false;
 
@@ -1389,7 +1389,7 @@ HRESULT CCredential::GetSerialization(
 				}
 				else if (_lastStatus == FIDO_ERR_NO_CREDENTIALS)
 				{
-					SetMode(Mode::PRIVACYIDEA);
+					SetMode(Mode::MFA_OTP);
 					errorMessage = _util.GetText(TEXT_FIDO_NO_CREDENTIALS);
 				}
 				else if (_lastStatus == FIDO_ERR_PIN_AUTH_BLOCKED)
@@ -1415,7 +1415,7 @@ HRESULT CCredential::GetSerialization(
 				else if (_lastStatus == FIDO_ERR_OPERATION_DENIED)
 				{
 					errorMessage = _util.GetText(TEXT_FIDO_CANCELLED);
-					SetMode(Mode::PRIVACYIDEA);
+					SetMode(Mode::MFA_OTP);
 				}
 				else if (_lastStatus == FIDO_ERR_NO_CREDENTIALS)
 				{
@@ -1441,15 +1441,15 @@ HRESULT CCredential::GetSerialization(
 			else
 			{
 				// Just move to privacyIDEA step
-				PIDebug("privacyIDEA not completed yet, moving to privacyIDEA step");
-				SetMode(Mode::PRIVACYIDEA);
+				PIDebug("MFA not completed yet, moving to MFA step");
+				SetMode(Mode::MFA_OTP);
 				*pcpgsr = CPGSR_NO_CREDENTIAL_NOT_FINISHED;
 			}
 		}
-		// PrivacyIDEA completed, move to Password
-		else if ((_privacyIDEASuccess || _config->pushAuthenticationSuccess) && _config->credential.password.empty())
+		// MFA completed, move to Password
+		else if ((_mfaSuccess || _config->pushAuthenticationSuccess) && _config->credential.password.empty())
 		{
-			PIDebug("privacyIDEA step completed, moving to Password step");
+			PIDebug("MFA step completed, moving to Password step");
 			if (_enrollmentInProgress || _pollEnrollmentInProgress)
 			{
 				_enrollmentInProgress = false;
@@ -1467,11 +1467,11 @@ HRESULT CCredential::GetSerialization(
 			*pcpgsr = CPGSR_NO_CREDENTIAL_NOT_FINISHED;
 		}
 		// Authentication was successful - log in
-		else if (_config->IsCredentialComplete() && (_privacyIDEASuccess || _config->pushAuthenticationSuccess))
+		else if (_config->IsCredentialComplete() && (_mfaSuccess || _config->pushAuthenticationSuccess))
 		{
 
 			PIDebug("Last step completed, logging in...");
-			_privacyIDEA.StopPoll();
+			_mfaClient.StopPoll();
 
 			// Pack credentials for logon
 			if (_config->provider.cpu == CPUS_CREDUI)
@@ -1540,8 +1540,8 @@ void CCredential::PushAuthenticationCallback(const PIResponse& response)
 	{
 		_config->pushAuthenticationSuccess = true;
 		_config->doAutoLogon = true;
-		// When autologon is triggered, connect is called instantly, therefore bypass privacyIDEA on next run
-		_config->bypassPrivacyIDEA = true;
+		// When autologon is triggered, connect is called instantly, therefore bypass MFA on next run
+		_config->bypassMFA = true;
 		_config->provider.pCredentialProviderEvents->CredentialsChanged(_config->provider.upAdviseContext);
 	}
 	_pollEnrollmentInProgress = false;
@@ -1652,7 +1652,7 @@ bool CCredential::CheckExcludedAccount()
 		if (Convert::ToUpperCase(toCompare) == Convert::ToUpperCase(exclAccount))
 		{
 			PIDebug("Login data matches excluded account");
-			_privacyIDEASuccess = true;
+			_mfaSuccess = true;
 			return true;
 		}
 	}
@@ -1669,7 +1669,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 	if (_config->useOfflineFIDO)
 	{
 		PIDebug("Getting FIDO2SignRequest from offline data");
-		signRequest = _privacyIDEA.GetOfflineFIDOSignRequest();
+		signRequest = _mfaClient.GetOfflineFIDOSignRequest();
 	}
 	else if (_config->usePasskey)
 	{
@@ -1685,7 +1685,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 	if (!signRequest)
 	{
 		PIDebug("No FIDO2SignRequest available or no offline data found for user " + Convert::ToString(username));
-		SetMode(Mode::PRIVACYIDEA);
+		SetMode(Mode::MFA_OTP);
 		return E_FAIL;
 	}
 
@@ -1698,7 +1698,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		if (!dev && _fidoDeviceSearchCancelled)
 		{
 			PIDebug("FIDO2 device search cancelled by user");
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			return E_FAIL;
 		}
 		const auto mode = SelectFIDOMode();
@@ -1750,7 +1750,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 	if (_config->useOfflineFIDO && _config->mode > Mode::SEC_KEY_ANY)
 	{
 		PIDebug("Trying offline FIDO2...");
-		auto offlineData = _privacyIDEA.offlineHandler.GetAllFIDOData();
+		auto offlineData = _mfaClient.offlineHandler.GetAllFIDOData();
 
 		string serialUsed;
 		HRESULT hr = device.SignAndVerifyAssertion(offlineData, origin, pin, serialUsed);
@@ -1763,15 +1763,15 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 				hr = FIDO_DEVICE_ERR_TX;
 			}
 			_lastStatus = hr;
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			return hr;
 		}
-		auto new_username = _privacyIDEA.offlineHandler.GetUsernameForSerial(serialUsed);
+		auto new_username = _mfaClient.offlineHandler.GetUsernameForSerial(serialUsed);
 		if (!new_username)
 		{
 			PIError("No username found for serial " + serialUsed);
 			_lastStatus = E_FAIL;
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			return E_FAIL;
 		}
 		username = Convert::ToWString(new_username.value());
@@ -1779,9 +1779,9 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		PIDebug(L"FIDO2 offline successful, using username: " + _config->credential.username);
 		if (hr == FIDO_OK)
 		{
-			_privacyIDEASuccess = true;
+			_mfaSuccess = true;
 			pqcws->SetStatusMessage(_util.GetText(TEXT_FIDO_CHECKING_OFFLINE_STATUS).c_str());
-			_privacyIDEA.OfflineRefillFIDO(username, serialUsed);
+			_mfaClient.OfflineRefillFIDO(username, serialUsed);
 			_config->useOfflineFIDO = false;
 		}
 		else
@@ -1797,7 +1797,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		{
 			PIError("Unable to get passkey challenge, cannot continue with passkey mode");
 			_lastStatus = E_FAIL;
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			return E_FAIL;
 		}
 		else
@@ -1808,7 +1808,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		if (hr != 0)
 		{
 			PIError("Passkey signing failed with error: " + to_string(hr));
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			if (hr == FIDO_ERR_TX)
 			{
 				// Use a more expressive error number
@@ -1827,7 +1827,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		if (hr == S_OK)
 		{
 			PIResponse response;
-			hr = _privacyIDEA.ValidateCheckFIDO(username, domain, signResponse, origin, response,
+			hr = _mfaClient.ValidateCheckFIDO(username, domain, signResponse, origin, response,
 				_passkeyChallenge.value().transactionId, std::wstring());
 			if (SUCCEEDED(hr))
 			{
@@ -1847,7 +1847,7 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		}
 	}
 	// ONLINE WEBAUTHN
-	else if (_config->lastResponseWithChallenge && _config->lastResponseWithChallenge->GetFIDOSignRequest() && !_privacyIDEASuccess)
+	else if (_config->lastResponseWithChallenge && _config->lastResponseWithChallenge->GetFIDOSignRequest() && !_mfaSuccess)
 	{
 		PIDebug("Trying online WebAuthn...");
 		HRESULT hr = device.Sign(_config->lastResponseWithChallenge->GetFIDOSignRequest().value(), origin, pin, signResponse);
@@ -1872,14 +1872,14 @@ HRESULT CCredential::FIDOAuthentication(IQueryContinueWithStatus* pqcws)
 		if (pqcws->QueryContinue() != S_OK)
 		{
 			PIError("User cancelled WebAuthn");
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			return E_FAIL;
 		}
 
 		if (hr == S_OK)
 		{
 			PIResponse response;
-			hr = _privacyIDEA.ValidateCheckFIDO(username, domain, signResponse, origin, response, _config->lastTransactionId, std::wstring());
+			hr = _mfaClient.ValidateCheckFIDO(username, domain, signResponse, origin, response, _config->lastTransactionId, std::wstring());
 			if (SUCCEEDED(hr))
 			{
 				EvaluateResponse(response);
@@ -1920,13 +1920,13 @@ HRESULT CCredential::FIDORegistration(IQueryContinueWithStatus* pqcws)
 	if (!dev && _fidoDeviceSearchCancelled)
 	{
 		PIDebug("FIDO2 device search cancelled by user");
-		SetMode(Mode::PRIVACYIDEA);
+		SetMode(Mode::MFA_OTP);
 		return E_FAIL;
 	}
 	else if (!dev)
 	{
 		PIDebug("No FIDO2 device found, cannot continue with registration");
-		SetMode(Mode::PRIVACYIDEA);
+		SetMode(Mode::MFA_OTP);
 		return E_FAIL; // TODO just log in anyway?  
 	}
 
@@ -1949,12 +1949,12 @@ HRESULT CCredential::FIDORegistration(IQueryContinueWithStatus* pqcws)
 		else if (ex.getErrorCode() == FIDO_ERR_PIN_AUTH_BLOCKED)
 		{
 			// We can not provide for all problems, so just show an info in GetSerialization and continue?  
-			//_privacyIDEASuccess = true;  
+			//_mfaSuccess = true;  
 			//return S_OK;  
 		}
 		else
 		{
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			_passkeyRegistrationFailed = true;
 		}
 
@@ -1968,7 +1968,7 @@ HRESULT CCredential::FIDORegistration(IQueryContinueWithStatus* pqcws)
 	else
 	{
 		PIResponse piresponse;
-		hr = _privacyIDEA.ValidateCheckCompletePasskeyRegistration(request.transactionId, request.serial,
+		hr = _mfaClient.ValidateCheckCompletePasskeyRegistration(request.transactionId, request.serial,
 			_config->credential.username, _config->credential.domain, response.value(), request.rpId, piresponse);
 
 		if (SUCCEEDED(hr) && piresponse.isAuthenticationSuccessful())
@@ -1997,7 +1997,7 @@ HRESULT CCredential::EvaluateResponse(PIResponse& response)
 	if (response.IsPushAvailable())
 	{
 		// When polling finishes, pushAuthenticationCallback is invoked with the finalization success value
-		_privacyIDEA.PollTransactionAsync(username, domain, upn, response.transactionId,
+		_mfaClient.PollTransactionAsync(username, domain, upn, response.transactionId,
 			std::bind(&CCredential::PushAuthenticationCallback, this, std::placeholders::_1));
 	}
 
@@ -2047,7 +2047,7 @@ HRESULT CCredential::EvaluateResponse(PIResponse& response)
 	}
 	else
 	{
-		_privacyIDEASuccess = response.isAuthenticationSuccessful();
+		_mfaSuccess = response.isAuthenticationSuccessful();
 	}
 
 	return S_OK;
@@ -2082,7 +2082,7 @@ std::optional<FIDODevice> CCredential::WaitForFIDODevice(IQueryContinueWithStatu
 		if (pqcws->QueryContinue() != S_OK)
 		{
 			PIDebug("User cancelled device search");
-			SetMode(Mode::PRIVACYIDEA);
+			SetMode(Mode::MFA_OTP);
 			_fidoDeviceSearchCancelled = true;
 			return std::nullopt;
 		}
@@ -2136,14 +2136,14 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 
 	if (CheckExcludedAccount())
 	{
-		_privacyIDEASuccess = true;
+		_mfaSuccess = true;
 		return S_OK;
 	}
 
-	if (_config->bypassPrivacyIDEA)
+	if (_config->bypassMFA)
 	{
-		PIDebug("Bypassing privacyIDEA...");
-		_config->bypassPrivacyIDEA = false;
+		PIDebug("Bypassing MFA...");
+		_config->bypassMFA = false;
 		return S_OK;
 	}
 
@@ -2192,14 +2192,14 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 		if (isOfflineCheck && (_config->mode < Mode::SEC_KEY_ANY))
 		{
 			string serialUsed;
-			hr = _privacyIDEA.OfflineCheck(username, passToSend, serialUsed);
+			hr = _mfaClient.OfflineCheck(username, passToSend, serialUsed);
 			// Check if a OfflineRefill should be attempted. Either if offlineThreshold is not set, remaining OTPs are below the threshold, or no more OTPs are available.
 			if ((hr == S_OK && _config->offlineTreshold == 0)
-				|| (hr == S_OK && _privacyIDEA.offlineHandler.GetOfflineOTPCount(Convert::ToString(username), serialUsed) < _config->offlineTreshold)
+				|| (hr == S_OK && _mfaClient.offlineHandler.GetOfflineOTPCount(Convert::ToString(username), serialUsed) < _config->offlineTreshold)
 				|| hr == PI_OFFLINE_DATA_NO_OTPS_LEFT)
 			{
 				pqcws->SetStatusMessage(_util.GetText(TEXT_OFFLINE_REFILL).c_str());
-				const HRESULT refillResult = _privacyIDEA.OfflineRefill(username, passToSend, serialUsed);
+				const HRESULT refillResult = _mfaClient.OfflineRefill(username, passToSend, serialUsed);
 				if (refillResult != S_OK)
 				{
 					PIDebug("OfflineRefill failed " + Convert::LongToHexString(refillResult));
@@ -2209,12 +2209,12 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 			// Authentication is complete if offlineCheck succeeds, regardless of refill status
 			if (hr == S_OK)
 			{
-				_privacyIDEASuccess = true;
+				_mfaSuccess = true;
 			}
 		}
 
 		// FIDO Authentication
-		if (!_privacyIDEASuccess && _config->IsModeOneOf(Mode::SEC_KEY_NO_PIN, Mode::SEC_KEY_PIN, Mode::SEC_KEY_NO_DEVICE)
+		if (!_mfaSuccess && _config->IsModeOneOf(Mode::SEC_KEY_NO_PIN, Mode::SEC_KEY_PIN, Mode::SEC_KEY_NO_DEVICE)
 			&& ((_config->lastResponseWithChallenge && !_config->lastResponseWithChallenge->passkeyRegistration) || _config->usePasskey || _config->useOfflineFIDO))
 		{
 			hr = FIDOAuthentication(pqcws);
@@ -2224,7 +2224,7 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 			}
 		}
 		// FIDO Registration
-		else if (!_privacyIDEASuccess && _config->IsModeOneOf(Mode::SEC_KEY_REG, Mode::SEC_KEY_REG_PIN, Mode::SEC_KEY_NO_DEVICE)
+		else if (!_mfaSuccess && _config->IsModeOneOf(Mode::SEC_KEY_REG, Mode::SEC_KEY_REG_PIN, Mode::SEC_KEY_NO_DEVICE)
 			&& _config->lastResponseWithChallenge && _config->lastResponseWithChallenge->passkeyRegistration)
 		{
 			if (!_passkeyRegistrationFailed)
@@ -2232,21 +2232,21 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 				hr = FIDORegistration(pqcws);
 				if (SUCCEEDED(hr))
 				{
-					_privacyIDEASuccess = true;
+					_mfaSuccess = true;
 				}
 			}
 			else
 			{
-				SetMode(Mode::PRIVACYIDEA);
+				SetMode(Mode::MFA_OTP);
 				hr = E_FAIL;
 			}
 			return hr;
 		}
-		else if (!_privacyIDEASuccess) // OTP
+		else if (!_mfaSuccess) // OTP
 		{
 			PIResponse otpResponse;
 			// lastTransactionId can be empty
-			hr = _privacyIDEA.ValidateCheck(username, domain, passToSend, otpResponse, _config->lastTransactionId, upn);
+			hr = _mfaClient.ValidateCheck(username, domain, passToSend, otpResponse, _config->lastTransactionId, upn);
 
 			// Evaluate the response
 			if (SUCCEEDED(hr))
@@ -2257,7 +2257,7 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 			{
 				// If an error occured during the first step (send pw/empty) ignore it
 				// so the next step, where offline could be done, will still be possible
-				if (_config->mode < Mode::PRIVACYIDEA)
+				if (_config->mode < Mode::MFA_OTP)
 				{
 					_lastStatus = S_OK;
 				}
@@ -2269,7 +2269,7 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 		}
 	}
 
-	PIDebug("Authentication complete: " + Convert::ToString(_privacyIDEASuccess));
+	PIDebug("Authentication complete: " + Convert::ToString(_mfaSuccess));
 	PIDebug("Connect - END");
 	return S_OK;
 }

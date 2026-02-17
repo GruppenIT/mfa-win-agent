@@ -81,8 +81,8 @@ static const FIELD_STATE_PAIR s_rgScenarioUsernamePassword[] =
 	{ CPFS_HIDDEN, CPFIS_NONE },							// FID_CANCEL_ENROLLMENT
 };
 
-// PRIVACYIDEA
-static const FIELD_STATE_PAIR s_rgScenarioPrivacyIDEA[] =
+// MFA_OTP
+static const FIELD_STATE_PAIR s_rgScenarioMFAOTP[] =
 {
 	{ CPFS_DISPLAY_IN_BOTH, CPFIS_NONE },					// FID_LOGO
 	{ CPFS_DISPLAY_IN_BOTH, CPFIS_NONE },					// FID_LARGE_TEXT

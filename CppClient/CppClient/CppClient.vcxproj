@@ -17,7 +17,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{6DB4CA8D-7529-4310-A4CF-F3DED2D143CC}</ProjectGuid>
-    <RootNamespace>PrivacyIDEACppClientCore</RootNamespace>
+    <RootNamespace>MFAZeroboxCppClientCore</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>CppClient</ProjectName>
   </PropertyGroup>
@@ -127,6 +127,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AgentManager.cpp" />
     <ClCompile Include="Convert.cpp" />
     <ClCompile Include="Endpoint.cpp" />
     <ClCompile Include="FIDODevice.cpp" />
@@ -134,11 +135,12 @@
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="OfflineHandler.cpp" />
     <ClCompile Include="PIResponse.cpp" />
-    <ClCompile Include="PrivacyIDEA.cpp" />
+    <ClCompile Include="MFAClient.cpp" />
     <ClCompile Include="RegistryReader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\nlohmann\json.hpp" />
+    <ClInclude Include="AgentManager.h" />
     <ClInclude Include="AuthenticationStatus.h" />
     <ClInclude Include="Challenge.h" />
     <ClInclude Include="Convert.h" />
@@ -153,7 +155,7 @@
     <ClInclude Include="FIDORegistrationRequest.h" />
     <ClInclude Include="PIConfig.h" />
     <ClInclude Include="PIResponse.h" />
-    <ClInclude Include="PrivacyIDEA.h" />
+    <ClInclude Include="MFAClient.h" />
     <ClInclude Include="RegistryReader.h" />
     <ClInclude Include="FIDOSignRequest.h" />
     <ClInclude Include="FIDOSignResponse.h" />
