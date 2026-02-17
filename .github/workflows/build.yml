@@ -2,7 +2,7 @@ name: Build MSI
 
 on:
   push:
-    branches: [ master, main, develop, 'release/**' ]
+    branches: [ master, main, develop, 'release/**', 'claude/**' ]
   pull_request:
     branches: [ master, main ]
   workflow_dispatch:
@@ -182,6 +182,30 @@ jobs:
             $targets | ForEach-Object { Write-Host "  $_" }
           } else {
             Write-Host "::error::WiX MSBuild targets NOT found at $msbuildWixDir"
+            exit 1
+          }
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Agent Service
+        shell: pwsh
+        run: |
+          dotnet publish AgentService/AgentService.csproj `
+            -c ${{ env.CONFIGURATION }} `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o AgentService/publish
+
+          $exe = Get-Item "AgentService\publish\GruppenMFA.AgentService.exe" -ErrorAction SilentlyContinue
+          if ($exe) {
+            Write-Host "Agent Service built: $($exe.FullName) ($([math]::Round($exe.Length/1MB, 2)) MB)"
+          } else {
+            Write-Host "::error::Agent Service exe not found"
             exit 1
           }
 

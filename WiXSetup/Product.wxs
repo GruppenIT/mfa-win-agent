@@ -60,10 +60,11 @@
 		<!-- END Preconditions and pre-setups -->
 
 		<!-- PROPERTIES - Get values for the UI from registry if available. (What if unattended/silent install?)-->
-		<Property Id="HOSTNAME" Value="hostname">
+		<!-- Hardcoded server URL for GruppenMFA backend -->
+		<Property Id="HOSTNAME" Value="mfa.gruppen.com.br">
 			<RegistrySearch Id="SearchHostname" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="hostname" Win64="$(var.Win64)" Type="raw" />
 		</Property>
-		<Property Id="CUSTOM_PORT">
+		<Property Id="CUSTOM_PORT" Value="10999">
 			<RegistrySearch Id="SearchCustomPort" Root="HKLM" Key="SOFTWARE\$(var.Manufacturer)\$(var.SimpleProductName)" Name="custom_port" Win64="$(var.Win64)" Type="raw" />
 		</Property>
 		<Property Id="PATH" Value="/path/to/pi">
@@ -271,6 +272,50 @@
 				</Directory>
 			</Directory>
 			<!-- END Directories/Components to be placed in ProgramFiles-folder -->
+
+			<!-- Agent Service components in ProgramFiles -->
+			<Directory Id="ProgramFiles64Folder2" Name="ProgramFiles64Folder">
+				<Directory Id="AgentCompanyFolder" Name="Gruppen IT">
+					<Directory Id="AGENTFOLDER" Name="GruppenMFA">
+						<Component Id="AgentServiceExe" Location="local" Guid="B7F3A1E2-4D5C-6E7F-8A9B-0C1D2E3F4A5B">
+							<File Id="AgentServiceFile" Name="GruppenMFA.AgentService.exe"
+								  Source="$(var.SolutionDir)AgentService\publish\GruppenMFA.AgentService.exe"
+								  KeyPath="yes" />
+							<!-- Install and configure the Windows Service -->
+							<ServiceInstall
+								Id="AgentServiceInstall"
+								Type="ownProcess"
+								Name="GruppenMFAAgent"
+								DisplayName="GruppenMFA Agent"
+								Description="GruppenMFA Agent Service - handles telemetry, remote configuration and tamper protection for the GruppenMFA Credential Provider."
+								Start="auto"
+								Account="LocalSystem"
+								ErrorControl="normal" />
+							<ServiceControl
+								Id="AgentServiceControl"
+								Name="GruppenMFAAgent"
+								Start="install"
+								Stop="both"
+								Remove="uninstall"
+								Wait="yes" />
+						</Component>
+						<!-- Agent registry: store API key and config hash -->
+						<Component Id="AgentRegistryComponent" Location="local" Guid="C8D4B2F3-5E6A-7F80-9B1C-2D3E4F5A6B7C">
+							<RegistryKey Root="HKLM" Key="SOFTWARE\Gruppen IT\GruppenMFA-Agent" ForceCreateOnInstall="yes">
+								<RegistryValue Name="api_key" Type="string" Value="[API_KEY]" KeyPath="yes" />
+								<RegistryValue Name="config_hash" Type="string" Value="" />
+								<RegistryValue Name="server_url" Type="string" Value="https://mfa.gruppen.com.br:10999" />
+							</RegistryKey>
+							<RemoveRegistryKey Root="HKLM" Key="SOFTWARE\Gruppen IT\GruppenMFA-Agent" Action="removeOnUninstall" />
+						</Component>
+						<!-- ProgramData folder for agent data -->
+						<Component Id="AgentDataFolder" Location="local" Guid="D9E5C3A4-6F7B-8091-AC2D-3E4F5A6B7C8D">
+							<CreateFolder Directory="AGENTFOLDER" />
+						</Component>
+					</Directory>
+				</Directory>
+			</Directory>
+
 			<!-- Directories/Components to be placed in ProgramData-folder (localization files)-->
 			<Directory Id="$(var.PlatformProgramDataFolder)" Name="$(var.PlatformProgramDataFolder)">
 				<Directory Id="PublisherFolder" Name ="$(var.Publisher)">
@@ -465,6 +510,11 @@
 				<ComponentRef Id="LocalizationFilesInProgramDataFolder"/>
 				<ComponentRef Id="RemoveObsoleteRegistryValues"/>
 				<ComponentRef Id="RegisterForSafeMode" />
+			</Feature>
+			<Feature Id="AgentService" Title="Agent Service" Description="GruppenMFA Agent Service for telemetry and remote configuration" Level="1" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
+				<ComponentRef Id="AgentServiceExe" />
+				<ComponentRef Id="AgentRegistryComponent" />
+				<ComponentRef Id="AgentDataFolder" />
 			</Feature>
 			<!-- These are installed anyway: -->
 			<Feature Id="VCRedist" Title="Visual C++ Runtime" AllowAdvertise="no" Display="hidden" Level="1">
