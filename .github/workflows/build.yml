@@ -196,7 +196,7 @@ jobs:
 
           # Verify MSI was generated
           $msiPath = "WiXSetup\bin\${{ env.PLATFORM }}\${{ env.CONFIGURATION }}"
-          $msi = Get-ChildItem $msiPath -Filter "*.msi" -ErrorAction SilentlyContinue
+          $msi = Get-ChildItem $msiPath -Filter "*.msi" -Recurse -ErrorAction SilentlyContinue
           if ($msi) {
             Write-Host "MSI generated: $($msi.FullName) ($([math]::Round($msi.Length/1MB, 2)) MB)"
           } else {
@@ -212,7 +212,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MFAZeroboxCredentialProvider-${{ env.CONFIGURATION }}-${{ env.PLATFORM }}
-          path: WiXSetup/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/*.msi
+          path: WiXSetup/bin/${{ env.PLATFORM }}/${{ env.CONFIGURATION }}/**/*.msi
           if-no-files-found: error
 
       - name: Upload DLLs (for debugging)
