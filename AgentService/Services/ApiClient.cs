@@ -23,9 +23,9 @@ public sealed class ApiClient : IDisposable
         WriteIndented = false
     };
 
-    // Retry configuration: 2s, 4s, 8s, 16s, then cap at 5min
+    // Retry configuration: 2s, 4s, 8s, 16s, then give up
     private static readonly int[] RetryDelaysMs = { 2000, 4000, 8000, 16000 };
-    private const int MaxRetryDelayMs = 300_000; // 5 minutes
+    private const int MaxRetries = 4;
 
     public ApiClient(string baseUrl, string apiKey, ILogger<ApiClient> logger)
     {
@@ -35,7 +35,6 @@ public sealed class ApiClient : IDisposable
 
         var handler = new HttpClientHandler
         {
-            // The server uses a valid Let's Encrypt cert
             ServerCertificateCustomValidationCallback = null
         };
 
@@ -47,7 +46,11 @@ public sealed class ApiClient : IDisposable
         _http.DefaultRequestHeaders.Add("X-API-Key", _apiKey);
         var version = typeof(ApiClient).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
         var hostname = Environment.MachineName.ToUpperInvariant();
-        _http.DefaultRequestHeaders.Add("User-Agent", $"gruppen-mfa-cp/{version} Windows/{hostname}");
+        var userAgent = $"gruppen-mfa-cp/{version} Windows/{hostname}";
+        _http.DefaultRequestHeaders.Add("User-Agent", userAgent);
+
+        _logger.LogInformation("ApiClient initialized — baseUrl={BaseUrl}, userAgent={UA}, apiKeyLength={Len}",
+            _baseUrl, userAgent, _apiKey.Length);
     }
 
     /// <summary>
@@ -81,24 +84,31 @@ public sealed class ApiClient : IDisposable
     private async Task<TResponse?> PostWithRetryAsync<TRequest, TResponse>(
         string path, TRequest body, CancellationToken ct) where TResponse : class
     {
+        var fullUrl = _baseUrl + path;
         var jsonBody = JsonSerializer.Serialize(body, JsonOptions);
+        _logger.LogInformation("  >> POST {Url}", fullUrl);
+        _logger.LogInformation("  >> Body: {Body}", Truncate(jsonBody, 500));
 
-        for (int attempt = 0; ; attempt++)
+        for (int attempt = 0; attempt < MaxRetries; attempt++)
         {
             try
             {
                 using var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                 using var response = await _http.PostAsync(path, content, ct);
 
+                var responseText = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogInformation("  << {StatusCode} {Reason} ({Bytes} bytes)",
+                    (int)response.StatusCode, response.ReasonPhrase, responseText.Length);
+
+                if (responseText.Length > 0)
+                    _logger.LogInformation("  << Body: {Body}", Truncate(responseText, 1000));
+
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorBody = await response.Content.ReadAsStringAsync(ct);
-                    _logger.LogWarning("POST {Path} returned {StatusCode}: {Body}",
-                        path, (int)response.StatusCode, errorBody.Length > 500 ? errorBody[..500] : errorBody);
+                    _logger.LogWarning("  << POST {Path} returned HTTP {StatusCode}", path, (int)response.StatusCode);
                     return null;
                 }
 
-                var responseText = await response.Content.ReadAsStringAsync(ct);
                 if (typeof(TResponse) == typeof(object))
                     return (TResponse)(object)new object(); // For ack, we just need success
 
@@ -110,34 +120,44 @@ public sealed class ApiClient : IDisposable
 
                 var delay = attempt < RetryDelaysMs.Length
                     ? RetryDelaysMs[attempt]
-                    : MaxRetryDelayMs;
+                    : RetryDelaysMs[^1];
 
-                _logger.LogWarning(ex, "POST {Path} failed (attempt {Attempt}), retrying in {Delay}ms",
-                    path, attempt + 1, delay);
+                _logger.LogWarning("  << POST {Url} FAILED (attempt {Attempt}/{Max}): {Error}. Retrying in {Delay}ms...",
+                    fullUrl, attempt + 1, MaxRetries, ex.Message, delay);
 
                 try { await Task.Delay(delay, ct); }
                 catch (OperationCanceledException) { return null; }
             }
         }
+
+        _logger.LogError("  << POST {Url} FAILED after {Max} attempts — giving up", fullUrl, MaxRetries);
+        return null;
     }
 
     private async Task<TResponse?> GetWithRetryAsync<TResponse>(string path, CancellationToken ct) where TResponse : class
     {
-        for (int attempt = 0; ; attempt++)
+        var fullUrl = _baseUrl + path;
+        _logger.LogInformation("  >> GET {Url}", fullUrl);
+
+        for (int attempt = 0; attempt < MaxRetries; attempt++)
         {
             try
             {
                 using var response = await _http.GetAsync(path, ct);
 
+                var responseText = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogInformation("  << {StatusCode} {Reason} ({Bytes} bytes)",
+                    (int)response.StatusCode, response.ReasonPhrase, responseText.Length);
+
+                if (responseText.Length > 0)
+                    _logger.LogInformation("  << Body: {Body}", Truncate(responseText, 1000));
+
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorBody = await response.Content.ReadAsStringAsync(ct);
-                    _logger.LogWarning("GET {Path} returned {StatusCode}: {Body}",
-                        path, (int)response.StatusCode, errorBody.Length > 500 ? errorBody[..500] : errorBody);
+                    _logger.LogWarning("  << GET {Path} returned HTTP {StatusCode}", path, (int)response.StatusCode);
                     return null;
                 }
 
-                var responseText = await response.Content.ReadAsStringAsync(ct);
                 return JsonSerializer.Deserialize<TResponse>(responseText, JsonOptions);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -146,16 +166,22 @@ public sealed class ApiClient : IDisposable
 
                 var delay = attempt < RetryDelaysMs.Length
                     ? RetryDelaysMs[attempt]
-                    : MaxRetryDelayMs;
+                    : RetryDelaysMs[^1];
 
-                _logger.LogWarning(ex, "GET {Path} failed (attempt {Attempt}), retrying in {Delay}ms",
-                    path, attempt + 1, delay);
+                _logger.LogWarning("  << GET {Url} FAILED (attempt {Attempt}/{Max}): {Error}. Retrying in {Delay}ms...",
+                    fullUrl, attempt + 1, MaxRetries, ex.Message, delay);
 
                 try { await Task.Delay(delay, ct); }
                 catch (OperationCanceledException) { return null; }
             }
         }
+
+        _logger.LogError("  << GET {Url} FAILED after {Max} attempts — giving up", fullUrl, MaxRetries);
+        return null;
     }
+
+    private static string Truncate(string s, int maxLen) =>
+        s.Length <= maxLen ? s : s[..maxLen] + "...(truncated)";
 
     public void Dispose() => _http.Dispose();
 }
