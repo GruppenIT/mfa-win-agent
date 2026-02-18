@@ -24,6 +24,10 @@ builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 // Register services
 builder.Services.AddSingleton<ConfigManager>();
+builder.Services.AddSingleton<OfflineCacheService>();
+builder.Services.AddSingleton<OfflineEventService>();
+builder.Services.AddSingleton<MobilityPolicyEvaluator>();
+builder.Services.AddSingleton<MobilityEnforcementService>();
 builder.Services.AddHostedService<Worker>();
 
 // Enable running as a Windows Service

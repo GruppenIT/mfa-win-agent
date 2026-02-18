@@ -8,23 +8,37 @@ namespace GruppenMFA.AgentService;
 
 /// <summary>
 /// Main background worker for the GruppenMFA Agent Service.
-/// Performs periodic checkin, config sync, and tamper protection monitoring.
+/// Performs periodic checkin, config sync, offline cache management,
+/// offline event sync, and mobility enforcement.
 /// </summary>
 public sealed class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ConfigManager _configManager;
+    private readonly OfflineCacheService _offlineCacheService;
+    private readonly OfflineEventService _offlineEventService;
+    private readonly MobilityEnforcementService _mobilityEnforcement;
 
     private const string DefaultServerUrl = "https://mfa.gruppen.com.br";
     private static readonly TimeSpan CheckinInterval = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan TamperCheckInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan MobilityCheckInterval = TimeSpan.FromSeconds(30);
 
-    public Worker(ILogger<Worker> logger, ILoggerFactory loggerFactory, ConfigManager configManager)
+    public Worker(
+        ILogger<Worker> logger,
+        ILoggerFactory loggerFactory,
+        ConfigManager configManager,
+        OfflineCacheService offlineCacheService,
+        OfflineEventService offlineEventService,
+        MobilityEnforcementService mobilityEnforcement)
     {
         _logger = logger;
         _loggerFactory = loggerFactory;
         _configManager = configManager;
+        _offlineCacheService = offlineCacheService;
+        _offlineEventService = offlineEventService;
+        _mobilityEnforcement = mobilityEnforcement;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -84,7 +98,29 @@ public sealed class Worker : BackgroundService
 
         // Initial startup: checkin + config sync + tamper check
         _logger.LogInformation("--- Starting initial checkin + config sync ---");
-        await DoCheckinAndSyncAsync(apiClient, hostname, agentVersion, osVersion, tamperProtection, stoppingToken);
+        bool serverReachable = await DoCheckinAndSyncAsync(apiClient, hostname, agentVersion, osVersion, tamperProtection, stoppingToken);
+
+        // Initial offline cache fetch (if enabled in config)
+        if (serverReachable)
+        {
+            var config = _configManager.LoadLocalConfig();
+            if (config?.OfflineMfaEnabled == true)
+            {
+                _logger.LogInformation("--- Fetching initial offline cache ---");
+                await _offlineCacheService.FetchAndStoreAsync(apiClient, hostname, stoppingToken);
+            }
+
+            // Sync any pending offline events
+            _offlineEventService.ImportCppEvents();
+            if (_offlineEventService.PendingCount > 0)
+            {
+                _logger.LogInformation("--- Syncing {Count} pending offline events ---", _offlineEventService.PendingCount);
+                await _offlineEventService.SyncAsync(apiClient, stoppingToken);
+            }
+
+            // Record successful online connectivity
+            _offlineCacheService.RecordOnlineAuth();
+        }
 
         // Clean old logs
         FileLogger.CleanOldLogs(
@@ -94,6 +130,7 @@ public sealed class Worker : BackgroundService
         // Main loop
         var lastCheckin = DateTime.UtcNow;
         var lastTamperCheck = DateTime.UtcNow;
+        var lastMobilityCheck = DateTime.UtcNow;
 
         _logger.LogInformation("Entering main loop (checkin every {Interval}s)", CheckinInterval.TotalSeconds);
 
@@ -113,8 +150,39 @@ public sealed class Worker : BackgroundService
             // Periodic checkin (every 2 minutes)
             if (now - lastCheckin >= CheckinInterval)
             {
-                await DoCheckinAndSyncAsync(apiClient, hostname, agentVersion, osVersion, tamperProtection, stoppingToken);
+                serverReachable = await DoCheckinAndSyncAsync(apiClient, hostname, agentVersion, osVersion, tamperProtection, stoppingToken);
+
+                if (serverReachable)
+                {
+                    // Update offline cache if enabled
+                    var config = _configManager.LoadLocalConfig();
+                    if (config?.OfflineMfaEnabled == true)
+                    {
+                        await _offlineCacheService.FetchAndStoreAsync(apiClient, hostname, stoppingToken);
+                    }
+
+                    // Sync pending offline events
+                    _offlineEventService.ImportCppEvents();
+                    if (_offlineEventService.PendingCount > 0)
+                    {
+                        await _offlineEventService.SyncAsync(apiClient, stoppingToken);
+                    }
+
+                    _offlineCacheService.RecordOnlineAuth();
+                }
+
                 lastCheckin = DateTime.UtcNow;
+            }
+
+            // Periodic mobility enforcement (every 30 seconds)
+            if (now - lastMobilityCheck >= MobilityCheckInterval)
+            {
+                _mobilityEnforcement.ImportOfflineSessions();
+                if (_mobilityEnforcement.HasPendingSessions && serverReachable)
+                {
+                    await _mobilityEnforcement.EnforceAsync(apiClient, hostname, stoppingToken);
+                }
+                lastMobilityCheck = DateTime.UtcNow;
             }
 
             // Periodic tamper check (every 5 minutes)
@@ -132,7 +200,10 @@ public sealed class Worker : BackgroundService
         _logger.LogInformation("GruppenMFA Agent Service stopping");
     }
 
-    private async Task DoCheckinAndSyncAsync(
+    /// <summary>
+    /// Perform checkin and config sync. Returns true if server was reachable.
+    /// </summary>
+    private async Task<bool> DoCheckinAndSyncAsync(
         ApiClient apiClient,
         string hostname,
         string agentVersion,
@@ -155,7 +226,7 @@ public sealed class Worker : BackgroundService
         if (checkinResponse == null)
         {
             _logger.LogWarning("[Checkin] FAILED — server unreachable or returned error. Will retry next cycle.");
-            return;
+            return false;
         }
 
         _logger.LogInformation("[Checkin] OK — id={Id}, status={Status}, configHash={Hash}",
@@ -221,6 +292,8 @@ public sealed class Worker : BackgroundService
         {
             _logger.LogInformation("[Config] Up to date (hash={Hash})", _configManager.CurrentConfigHash);
         }
+
+        return true;
     }
 
     private static string GetWindowsVersion()

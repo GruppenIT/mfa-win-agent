@@ -21,6 +21,7 @@
 #include "PIResponse.h"
 #include "JsonParser.h"
 #include "OfflineHandler.h"
+#include "OfflineTotpCache.h"
 #include "Logger.h"
 #include "Endpoint.h"
 #include "PIConfig.h"
@@ -155,12 +156,28 @@ public:
 	OfflineHandler offlineHandler;
 
 	/// <summary>
+	/// Offline TOTP cache for validating codes when server is unreachable.
+	/// Reads DPAPI-encrypted cache written by the C# AgentService.
+	/// </summary>
+	OfflineTotpCache offlineTotpCache;
+
+	/// <summary>
+	/// Validate TOTP code using the offline cache. Called when the server is unreachable.
+	/// Handles: cache loading, expiry check, user lookup, TOTP validation, brute force, mobility.
+	/// </summary>
+	/// <param name="username">The username to validate</param>
+	/// <param name="totpCode">The TOTP code entered by the user</param>
+	/// <param name="result">Output: detailed result of the validation</param>
+	/// <returns>HRESULT: S_OK on success, various OFFLINE_TOTP_* error codes on failure</returns>
+	HRESULT OfflineTotpCheck(const std::wstring& username, const std::wstring& totpCode, OfflineTotpResult& result);
+
+	/// <summary>
 	/// Return an offline FIDO2 sign request if offline FIDO2 token data is available. For every token, the credential_id will be in
 	/// allowed_credential
 	/// </summary>
 	/// <returns>std::optional<FIDO2SignRequest></returns>
 	std::optional<FIDOSignRequest> GetOfflineFIDOSignRequest();
-	
+
 private:
 	HRESULT AppendRealm(std::wstring domain, std::map<std::string, std::string>& parameters);
 

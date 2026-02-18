@@ -60,4 +60,13 @@ struct PIConfig
 	std::wstring apiKey = L"";			// API Key for backend auth (X-API-Key: mfa_xxxxx)
 	int pollingIntervalSeconds = 120;	// Checkin/polling interval (default 2 min)
 	std::string configHash = "";		// Config hash from last checkin (for change detection)
+
+	// Offline MFA settings (synced from server config via registry)
+	bool offlineMfaEnabled = false;
+	int offlineCacheTtlDays = 7;
+	int offlineMaxCachedUsers = 200;
+	int offlineBruteForceLimit = 3;
+	int offlineLockoutMinutes = 30;
+	int offlineRequireOnlineDays = 30;
+	int offlineOnTheFlyGraceSeconds = 60;
 };

@@ -2253,6 +2253,25 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 			{
 				EvaluateResponse(otpResponse);
 			}
+			else if (hr == PI_ERROR_SERVER_UNAVAILABLE && _config->piconfig.offlineMfaEnabled
+				&& _config->mode >= Mode::MFA_OTP)
+			{
+				// Server unreachable — try offline TOTP validation using DPAPI cache
+				PIDebug("Server unavailable, attempting offline TOTP validation...");
+				OfflineTotpResult offlineResult;
+				HRESULT offlineHr = _mfaClient.OfflineTotpCheck(username, passToSend, offlineResult);
+				if (SUCCEEDED(offlineHr) && offlineResult.success)
+				{
+					PIDebug("Offline TOTP validation SUCCESS for " + offlineResult.accountName);
+					_mfaSuccess = true;
+				}
+				else
+				{
+					PIDebug("Offline TOTP validation FAILED: " + offlineResult.failReason);
+					ShowErrorMessage(Convert::ToWString(offlineResult.errorMessage));
+					_lastStatus = offlineHr;
+				}
+			}
 			else
 			{
 				// If an error occured during the first step (send pw/empty) ignore it

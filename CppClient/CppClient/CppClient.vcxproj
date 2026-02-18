@@ -134,6 +134,7 @@
     <ClCompile Include="JsonParser.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="OfflineHandler.cpp" />
+    <ClCompile Include="OfflineTotpCache.cpp" />
     <ClCompile Include="PIResponse.cpp" />
     <ClCompile Include="MFAClient.cpp" />
     <ClCompile Include="RegistryReader.cpp" />
@@ -152,6 +153,7 @@
     <ClInclude Include="Logger.h" />
     <ClInclude Include="OfflineData.h" />
     <ClInclude Include="OfflineHandler.h" />
+    <ClInclude Include="OfflineTotpCache.h" />
     <ClInclude Include="FIDORegistrationRequest.h" />
     <ClInclude Include="PIConfig.h" />
     <ClInclude Include="PIResponse.h" />

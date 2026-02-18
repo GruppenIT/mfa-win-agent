@@ -81,6 +81,33 @@ public sealed class ApiClient : IDisposable
         return result != null;
     }
 
+    /// <summary>
+    /// GET /api/agents/offline-cache?hostname=X — fetch offline TOTP secrets + mobility policies.
+    /// </summary>
+    public async Task<OfflineCacheResponse?> GetOfflineCacheAsync(string hostname, CancellationToken ct = default)
+    {
+        var url = $"/api/agents/offline-cache?hostname={Uri.EscapeDataString(hostname)}";
+        return await GetWithRetryAsync<OfflineCacheResponse>(url, ct);
+    }
+
+    /// <summary>
+    /// POST /api/agents/offline-events — sync offline auth events to server.
+    /// </summary>
+    public async Task<OfflineEventsResponse?> PostOfflineEventsAsync(OfflineEventsRequest request, CancellationToken ct = default)
+    {
+        return await PostWithRetryAsync<OfflineEventsRequest, OfflineEventsResponse>(
+            "/api/agents/offline-events", request, ct);
+    }
+
+    /// <summary>
+    /// POST /api/agents/mobility-check — check if a session is allowed by mobility policies.
+    /// </summary>
+    public async Task<MobilityCheckResponse?> MobilityCheckAsync(MobilityCheckRequest request, CancellationToken ct = default)
+    {
+        return await PostWithRetryAsync<MobilityCheckRequest, MobilityCheckResponse>(
+            "/api/agents/mobility-check", request, ct);
+    }
+
     private async Task<TResponse?> PostWithRetryAsync<TRequest, TResponse>(
         string path, TRequest body, CancellationToken ct) where TResponse : class
     {
