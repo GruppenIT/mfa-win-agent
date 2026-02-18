@@ -120,6 +120,9 @@ public sealed class OfflineEventService
             if (ct.IsCancellationRequested) break;
 
             var batch = eventsToSend.Skip(offset).Take(MaxEventsPerRequest).ToArray();
+            // Normalize null failReason to empty string (backend rejects null)
+            foreach (var evt in batch)
+                evt.FailReason ??= string.Empty;
             var request = new OfflineEventsRequest { Events = batch };
 
             var response = await apiClient.PostOfflineEventsAsync(request, ct);

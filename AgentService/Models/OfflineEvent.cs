@@ -26,7 +26,7 @@ public class OfflineEvent
     public string AgentType { get; set; } = "CP";
 
     [JsonPropertyName("failReason")]
-    public string? FailReason { get; set; }
+    public string FailReason { get; set; } = string.Empty;
 }
 
 /// <summary>
