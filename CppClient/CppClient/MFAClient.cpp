@@ -449,3 +449,50 @@ bool MFAClient::OfflineFIDODataExistsFor(std::wstring username)
 	string szUsername = Convert::ToString(username);
 	return !offlineHandler.GetFIDODataFor(szUsername).empty();
 }
+
+HRESULT MFAClient::OfflineTotpCheck(const std::wstring& username, const std::wstring& totpCode, OfflineTotpResult& result)
+{
+	PIDebug(__FUNCTION__);
+
+	// Load the cache (written by C# AgentService via DPAPI)
+	if (!offlineTotpCache.LoadCache())
+	{
+		PIError("Failed to load offline TOTP cache");
+		result.failReason = "CACHE_NOT_FOUND";
+		result.errorMessage = "Cache offline nao encontrado. Conecte-se a rede.";
+		return OFFLINE_TOTP_CACHE_NOT_FOUND;
+	}
+
+	// Validate the TOTP code
+	HRESULT hr = offlineTotpCache.ValidateTotp(username, totpCode, result);
+
+	string szUsername = Convert::ToString(username);
+
+	// Write offline event regardless of result
+	offlineTotpCache.WriteOfflineEvent(szUsername, result.success, result.failReason);
+
+	if (SUCCEEDED(hr) && result.success)
+	{
+		// Check mobility policies from cache
+		wchar_t hostBuf[MAX_COMPUTERNAME_LENGTH + 1] = {};
+		DWORD hostLen = MAX_COMPUTERNAME_LENGTH + 1;
+		GetComputerNameW(hostBuf, &hostLen);
+		string hostname = Convert::ToString(wstring(hostBuf));
+		string clientIp = OfflineTotpCache::GetLocalIp();
+
+		HRESULT mobilityHr = offlineTotpCache.EvaluateMobilityPolicies(result.userId, hostname, clientIp);
+		if (FAILED(mobilityHr))
+		{
+			result.success = false;
+			result.failReason = "MOBILITY_DENIED";
+			result.errorMessage = "Sessao nao autorizada pela politica de mobilidade.";
+			offlineTotpCache.WriteOfflineEvent(szUsername, false, "MOBILITY_DENIED");
+			return mobilityHr;
+		}
+
+		// Write offline session file for the C# service to do on-the-fly enforcement
+		offlineTotpCache.WriteOfflineSession(result.userId, result.accountName, clientIp);
+	}
+
+	return hr;
+}

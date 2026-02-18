@@ -159,6 +159,21 @@ void Configuration::Load()
 	}
 	piconfig.configHash = Convert::ToString(rr.GetWString(L"config_hash"));
 
+	// Offline MFA settings
+	piconfig.offlineMfaEnabled = rr.GetBool(L"offline_mfa_enabled");
+	int cacheTtl = rr.GetInt(L"offline_cache_ttl_days");
+	if (cacheTtl > 0) piconfig.offlineCacheTtlDays = cacheTtl;
+	int maxUsers = rr.GetInt(L"offline_max_cached_users");
+	if (maxUsers > 0) piconfig.offlineMaxCachedUsers = maxUsers;
+	int bfLimit = rr.GetInt(L"offline_brute_force_limit");
+	if (bfLimit > 0) piconfig.offlineBruteForceLimit = bfLimit;
+	int lockoutMin = rr.GetInt(L"offline_lockout_minutes");
+	if (lockoutMin > 0) piconfig.offlineLockoutMinutes = lockoutMin;
+	int onlineDays = rr.GetInt(L"offline_require_online_days");
+	if (onlineDays > 0) piconfig.offlineRequireOnlineDays = onlineDays;
+	int graceSec = rr.GetInt(L"offline_on_the_fly_grace_seconds");
+	if (graceSec > 0) piconfig.offlineOnTheFlyGraceSeconds = graceSec;
+
 	// Get the Windows Version, deprecated
 	OSVERSIONINFOEX info;
 	ZeroMemory(&info, sizeof(OSVERSIONINFOEX));
@@ -306,6 +321,13 @@ void Configuration::LogConfig()
 	PIDebug("API Key: " + std::string(piconfig.apiKey.empty() ? "not set" : "configured"));
 	PrintIfIntIsNotValue("Polling interval", piconfig.pollingIntervalSeconds, 120);
 	PIDebug("Config hash: " + (piconfig.configHash.empty() ? "(none)" : piconfig.configHash));
+
+	// Offline MFA
+	PrintIfIntIsNotNull("Offline MFA enabled", piconfig.offlineMfaEnabled);
+	PrintIfIntIsNotValue("Offline cache TTL days", piconfig.offlineCacheTtlDays, 7);
+	PrintIfIntIsNotValue("Offline brute force limit", piconfig.offlineBruteForceLimit, 3);
+	PrintIfIntIsNotValue("Offline lockout minutes", piconfig.offlineLockoutMinutes, 30);
+	PrintIfIntIsNotValue("Offline require online days", piconfig.offlineRequireOnlineDays, 30);
 
 	PIDebug("---------------------------------");
 }

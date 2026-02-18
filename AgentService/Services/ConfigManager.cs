@@ -275,6 +275,15 @@ public sealed class ConfigManager
         // Debug
         key.SetValue("debug_log", config.DebugLogging ? 1 : 0, RegistryValueKind.DWord);
 
+        // Offline MFA settings
+        key.SetValue("offline_mfa_enabled", config.OfflineMfaEnabled ? 1 : 0, RegistryValueKind.DWord);
+        key.SetValue("offline_cache_ttl_days", config.OfflineCacheTtlDays, RegistryValueKind.DWord);
+        key.SetValue("offline_max_cached_users", config.OfflineMaxCachedUsers, RegistryValueKind.DWord);
+        key.SetValue("offline_brute_force_limit", config.OfflineBruteForceLimit, RegistryValueKind.DWord);
+        key.SetValue("offline_lockout_minutes", config.OfflineLockoutMinutes, RegistryValueKind.DWord);
+        key.SetValue("offline_require_online_days", config.OfflineRequireOnlineDays, RegistryValueKind.DWord);
+        key.SetValue("offline_on_the_fly_grace_seconds", config.OfflineOnTheFlyGraceSeconds, RegistryValueKind.DWord);
+
         _logger.LogDebug("Registry synced to {Path}", CpRegistryPath);
     }
 
