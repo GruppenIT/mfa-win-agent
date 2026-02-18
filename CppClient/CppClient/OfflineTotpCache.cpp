@@ -16,6 +16,10 @@
 **
 ** * * * * * * * * * * * * * * * * * * */
 
+// winsock2.h MUST come before Windows.h (included transitively by OfflineTotpCache.h)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
 #include "OfflineTotpCache.h"
 #include "Logger.h"
 #include "Convert.h"
@@ -27,14 +31,12 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #include <iphlpapi.h>
-#include <ShlObj.h>
 
 #pragma comment(lib, "bcrypt.lib")
 #pragma comment(lib, "crypt32.lib")
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 using json = nlohmann::json;
 using namespace std;
