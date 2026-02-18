@@ -24,23 +24,23 @@
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 	<?include $(sys.CURRENTDIR)\Config.wxi?>
-	<Product Id="*" Language="1033" Name="$(var.ProductName)" Manufacturer="$(var.Publisher)" Version="$(var.Version)" UpgradeCode="cc1e3a9f-e37e-4ca9-bb97-28c711acb4ed">
-		<Package Id="*" InstallerVersion="405" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" Manufacturer="$(var.Publisher)" Description="$(var.ProductName) $(var.Version) Setup" />
+	<Product Id="*" Language="1046" Name="$(var.ProductName)" Manufacturer="$(var.Publisher)" Version="$(var.Version)" UpgradeCode="cc1e3a9f-e37e-4ca9-bb97-28c711acb4ed">
+		<Package Id="*" InstallerVersion="405" Compressed="yes" InstallScope="perMachine" InstallPrivileges="elevated" Manufacturer="$(var.Publisher)" Description="$(var.ProductName) $(var.Version) Instalação" />
 		<MajorUpgrade AllowSameVersionUpgrades="yes"
 					  AllowDowngrades="no"
 					  MigrateFeatures="yes"
-					  DowngradeErrorMessage="A newer version of [ProductName] is already installed!" />
+					  DowngradeErrorMessage="Uma versão mais recente do [ProductName] já está instalada!" />
 		
 		<Property Id="ARPURLINFOABOUT" Value="$(var.AppURLInfoAbout)" />
 		<!-- Disable the modify/repair button in software explorer -->
 		<Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
 		<Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
-		<Condition Message="You need to be an administrator to install this product.">
+		<Condition Message="Você precisa ser administrador para instalar este produto.">
 			Privileged
 		</Condition>
 		<!-- Custom action definitions -->
-		<CustomAction Id="IsPrivileged" Error="You must be an admin to install this product" />
-		<CustomAction Id="PreventDowngrading" Error="Newer version already installed." />
+		<CustomAction Id="IsPrivileged" Error="Você precisa ser administrador para instalar este produto." />
+		<CustomAction Id="PreventDowngrading" Error="Uma versão mais recente já está instalada." />
 		<!-- END Custom action definitions-->
 		<InstallExecuteSequence>
 			<Custom Action="IsPrivileged" Before="AppSearch">
@@ -112,7 +112,7 @@
 								Type="ownProcess"
 								Name="GruppenMFAAgent"
 								DisplayName="GruppenMFA Agent"
-								Description="GruppenMFA Agent Service - handles telemetry, remote configuration and tamper protection for the GruppenMFA Credential Provider."
+								Description="Serviço do Agente GruppenMFA - gerencia telemetria, configuração remota e proteção contra adulteração do GruppenMFA Credential Provider."
 								Start="auto"
 								Account="LocalSystem"
 								ErrorControl="normal" />
@@ -260,8 +260,8 @@
 		</Directory>
 		<!-- END Directory definitions -->
 		<!-- Feature definitions -->
-		<Feature Id="Complete" Title="$(var.ProductName)" Description="Full install" Display="expand" Level="1" ConfigurableDirectory="INSTALLFOLDER" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
-			<Feature Id="MainInstall" Title="Core components" Description="Core $(var.ProductName) components" Level="1" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
+		<Feature Id="Complete" Title="$(var.ProductName)" Description="Instalação completa" Display="expand" Level="1" ConfigurableDirectory="INSTALLFOLDER" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
+			<Feature Id="MainInstall" Title="Componentes principais" Description="Componentes principais do $(var.ProductName)" Level="1" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
 				<ComponentRef Id="CredentialProvider" />
 				<ComponentRef Id="CredentialProviderFilter" />
 				<ComponentRef Id="ActivateCredentialProviderFilter" />
@@ -269,7 +269,7 @@
 				<ComponentRef Id="RemoveObsoleteRegistryValues"/>
 				<ComponentRef Id="RegisterForSafeMode" />
 			</Feature>
-			<Feature Id="AgentService" Title="Agent Service" Description="GruppenMFA Agent Service for telemetry and remote configuration" Level="1" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
+			<Feature Id="AgentService" Title="Serviço do Agente" Description="Serviço do Agente GruppenMFA para telemetria e configuração remota" Level="1" AllowAdvertise="no" Absent="disallow" InstallDefault="local">
 				<ComponentRef Id="AgentServiceExe" />
 				<ComponentRef Id="AgentRegistryComponent" />
 				<ComponentRef Id="AgentDataFolder" />
