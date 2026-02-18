@@ -144,12 +144,23 @@ std::wstring RegistryReader::GetWString(std::wstring name) noexcept
 	if (dwRet != ERROR_SUCCESS)
 	{
 		PIError("Failed to read registry value " + Convert::ToString(name) + ", error: " + Convert::LongToHexString(dwRet));
+		RegCloseKey(hKey);
 		return L"";
+	}
+
+	if (dwType == REG_DWORD)
+	{
+		// The Agent service writes boolean/integer values as REG_DWORD.
+		// Convert to string so callers (GetBool, GetInt) work transparently.
+		DWORD dwordVal = *reinterpret_cast<DWORD*>(szValue);
+		RegCloseKey(hKey);
+		return to_wstring(dwordVal);
 	}
 
 	if (dwType != REG_SZ)
 	{
-		PIError("Type of registry value " + Convert::ToString(name) + " is not REG_SZ, but " + Convert::LongToHexString(dwType));
+		PIError("Type of registry value " + Convert::ToString(name) + " is not REG_SZ or REG_DWORD, but " + Convert::LongToHexString(dwType));
+		RegCloseKey(hKey);
 		return L"";
 	}
 	RegCloseKey(hKey);
