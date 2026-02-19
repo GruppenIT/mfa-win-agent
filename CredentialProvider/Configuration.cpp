@@ -86,6 +86,7 @@ void Configuration::Load()
 	showDomainHint = rr.GetBool(L"show_domain_hint");
 
 	// Custom field texts: check if set, otherwise use defaults (from header)
+	otpText = rr.GetWString(L"otp_text");
 
 	hideFirstStepResponseError = rr.GetBool(L"hide_first_step_response_error");
 
