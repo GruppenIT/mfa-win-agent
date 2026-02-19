@@ -213,78 +213,13 @@ jobs:
             exit 1
           }
 
-      - name: Build C++ projects (without WiX)
+      - name: Build Solution
         shell: pwsh
         run: |
-          # Build only the C++ projects — WiX MSI is built later after signing.
-          # SolutionDir must be passed explicitly since we build .vcxproj directly
-          # (outside of .sln context) and the projects use $(SolutionDir) for includes.
-          $slnDir = "$((Get-Location).Path)\"
-          $cppProjects = @(
-            "CppClient\CppClient\CppClient.vcxproj",
-            "Shared\Shared.vcxproj",
-            "CredentialProviderFilter\CredentialProviderFilter.vcxproj",
-            "CredentialProvider\CredentialProvider.vcxproj"
-          )
-          foreach ($proj in $cppProjects) {
-            Write-Host "Building $proj ..."
-            msbuild $proj `
-              /p:Configuration=${{ env.CONFIGURATION }} `
-              /p:Platform=${{ env.PLATFORM }} `
-              /p:SolutionDir="$slnDir" `
-              /m `
-              /verbosity:minimal
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "::error::Build failed for $proj"
-              exit 1
-            }
-          }
-          Write-Host "All C++ projects built successfully."
-
-      # ── Code Signing ─────────────────────────────────────────────
-      # Requires two GitHub Secrets:
-      #   CODE_SIGNING_PFX      - Base64-encoded .pfx certificate
-      #   CODE_SIGNING_PASSWORD - Password for the .pfx file
-      #
-      # To encode your .pfx for GitHub Secrets (works on PowerShell 5.1+):
-      #   [Convert]::ToBase64String([IO.File]::ReadAllBytes("gruppen.pfx")) | Set-Clipboard
-      #
-      # Then add both secrets at: repo Settings > Secrets and variables > Actions
-
-      - name: Import code signing certificate
-        if: env.CODE_SIGNING_PFX != ''
-        shell: pwsh
-        env:
-          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
-          CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
-        run: |
-          $pfxBytes = [Convert]::FromBase64String($env:CODE_SIGNING_PFX)
-          $pfxPath = Join-Path $env:RUNNER_TEMP "code_signing.pfx"
-          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
-          Write-Host "PFX certificate written to temp file"
-          echo "PFX_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Sign binaries (DLLs + EXE)
-        if: env.CODE_SIGNING_PFX != ''
-        shell: pwsh
-        env:
-          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
-          CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
-        run: |
-          scripts\Sign-Artifacts.ps1 `
-            -PfxPath "${{ env.PFX_PATH }}" `
-            -PfxPassword "$env:CODE_SIGNING_PASSWORD" `
-            -Configuration "${{ env.CONFIGURATION }}" `
-            -Platform "${{ env.PLATFORM }}" `
-            -SolutionDir "." `
-            -Phase binaries
-
-      - name: Build MSI (with signed binaries)
-        shell: pwsh
-        run: |
-          msbuild WiXSetup\WiXSetup.wixproj `
+          msbuild ${{ env.SOLUTION_FILE }} `
             /p:Configuration=${{ env.CONFIGURATION }} `
             /p:Platform=${{ env.PLATFORM }} `
+            /m `
             /verbosity:normal
 
           # Verify MSI was generated
@@ -294,35 +229,9 @@ jobs:
             Write-Host "MSI generated: $($msi.FullName) ($([math]::Round($msi.Length/1MB, 2)) MB)"
           } else {
             Write-Host "::error::MSI not found at $msiPath"
+            Write-Host "Listing WiXSetup output directories:"
             Get-ChildItem "WiXSetup" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
             exit 1
-          }
-
-      - name: Sign MSI
-        if: env.CODE_SIGNING_PFX != ''
-        shell: pwsh
-        env:
-          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
-          CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
-        run: |
-          scripts\Sign-Artifacts.ps1 `
-            -PfxPath "${{ env.PFX_PATH }}" `
-            -PfxPassword "$env:CODE_SIGNING_PASSWORD" `
-            -Configuration "${{ env.CONFIGURATION }}" `
-            -Platform "${{ env.PLATFORM }}" `
-            -SolutionDir "." `
-            -Phase msi
-
-      - name: Clean up certificate
-        if: always() && env.CODE_SIGNING_PFX != ''
-        shell: pwsh
-        env:
-          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
-        run: |
-          $pfxPath = Join-Path $env:RUNNER_TEMP "code_signing.pfx"
-          if (Test-Path $pfxPath) {
-            Remove-Item $pfxPath -Force
-            Write-Host "Certificate file cleaned up"
           }
 
       # ── Artifacts ─────────────────────────────────────────────────
