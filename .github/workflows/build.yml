@@ -216,7 +216,10 @@ jobs:
       - name: Build C++ projects (without WiX)
         shell: pwsh
         run: |
-          # Build only the C++ projects — WiX MSI is built later after signing
+          # Build only the C++ projects — WiX MSI is built later after signing.
+          # SolutionDir must be passed explicitly since we build .vcxproj directly
+          # (outside of .sln context) and the projects use $(SolutionDir) for includes.
+          $slnDir = "$((Get-Location).Path)\"
           $cppProjects = @(
             "CppClient\CppClient\CppClient.vcxproj",
             "Shared\Shared.vcxproj",
@@ -228,6 +231,7 @@ jobs:
             msbuild $proj `
               /p:Configuration=${{ env.CONFIGURATION }} `
               /p:Platform=${{ env.PLATFORM }} `
+              /p:SolutionDir="$slnDir" `
               /m `
               /verbosity:minimal
             if ($LASTEXITCODE -ne 0) {
