@@ -234,6 +234,55 @@ jobs:
             exit 1
           }
 
+      # ── Code Signing ─────────────────────────────────────────────
+      # Requires two GitHub Secrets:
+      #   CODE_SIGNING_PFX      - Base64-encoded .pfx certificate
+      #   CODE_SIGNING_PASSWORD - Password for the .pfx file
+      #
+      # To encode your .pfx for GitHub Secrets:
+      #   [Convert]::ToBase64String((Get-Content -Path "gruppen.pfx" -AsByteStream)) | Set-Clipboard
+      #
+      # Then add both secrets at: repo Settings > Secrets and variables > Actions
+
+      - name: Import code signing certificate
+        if: env.CODE_SIGNING_PFX != ''
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
+          CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
+        run: |
+          $pfxBytes = [Convert]::FromBase64String($env:CODE_SIGNING_PFX)
+          $pfxPath = Join-Path $env:RUNNER_TEMP "code_signing.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+          Write-Host "PFX certificate written to temp file"
+          echo "PFX_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Sign artifacts
+        if: env.CODE_SIGNING_PFX != ''
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
+          CODE_SIGNING_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
+        run: |
+          scripts\Sign-Artifacts.ps1 `
+            -PfxPath "${{ env.PFX_PATH }}" `
+            -PfxPassword "$env:CODE_SIGNING_PASSWORD" `
+            -Configuration "${{ env.CONFIGURATION }}" `
+            -Platform "${{ env.PLATFORM }}" `
+            -SolutionDir "."
+
+      - name: Clean up certificate
+        if: always() && env.CODE_SIGNING_PFX != ''
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX: ${{ secrets.CODE_SIGNING_PFX }}
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP "code_signing.pfx"
+          if (Test-Path $pfxPath) {
+            Remove-Item $pfxPath -Force
+            Write-Host "Certificate file cleaned up"
+          }
+
       # ── Artifacts ─────────────────────────────────────────────────
 
       - name: Upload MSI
