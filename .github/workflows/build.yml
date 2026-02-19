@@ -239,8 +239,8 @@ jobs:
       #   CODE_SIGNING_PFX      - Base64-encoded .pfx certificate
       #   CODE_SIGNING_PASSWORD - Password for the .pfx file
       #
-      # To encode your .pfx for GitHub Secrets:
-      #   [Convert]::ToBase64String((Get-Content -Path "gruppen.pfx" -AsByteStream)) | Set-Clipboard
+      # To encode your .pfx for GitHub Secrets (works on PowerShell 5.1+):
+      #   [Convert]::ToBase64String([IO.File]::ReadAllBytes("gruppen.pfx")) | Set-Clipboard
       #
       # Then add both secrets at: repo Settings > Secrets and variables > Actions
 
