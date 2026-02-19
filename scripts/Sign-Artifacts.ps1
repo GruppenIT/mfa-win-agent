@@ -3,14 +3,15 @@
     Signs build artifacts (DLLs, EXE, MSI) with an Authenticode certificate.
 
 .DESCRIPTION
-    Uses signtool.exe to sign all GruppenMFA build artifacts with SHA-256.
+    Uses signtool.exe to sign GruppenMFA build artifacts with SHA-256.
     Supports two modes:
       1. PFX file + password (local builds / CI with secret file)
       2. Certificate thumbprint from Windows certificate store (CI with imported cert)
 
-    The script signs individual binaries first, then the MSI (which embeds them).
-    This order is important: if you sign the MSI first and then the binaries,
-    the MSI signature becomes invalid.
+    Use -Phase to control what gets signed:
+      "binaries" - Sign DLLs and EXE only (run BEFORE building the MSI)
+      "msi"      - Sign the MSI only (run AFTER building the MSI)
+      "all"      - Sign everything in order (for local builds where MSI already exists)
 
 .PARAMETER PfxPath
     Path to the .pfx certificate file.
@@ -33,13 +34,20 @@
 .PARAMETER SolutionDir
     Root of the repository. Defaults to the parent of this script's directory.
 
+.PARAMETER Phase
+    What to sign: "binaries", "msi", or "all" (default).
+
 .EXAMPLE
-    # Sign with PFX file
+    # Local: sign everything after a full build
     .\Sign-Artifacts.ps1 -PfxPath "C:\certs\gruppen.pfx" -PfxPassword "mypass"
 
 .EXAMPLE
-    # Sign with certificate from store (CI)
-    .\Sign-Artifacts.ps1 -Thumbprint "A1B2C3D4..."
+    # CI: sign binaries before MSI packaging
+    .\Sign-Artifacts.ps1 -PfxPath cert.pfx -PfxPassword pw -Phase binaries
+
+.EXAMPLE
+    # CI: sign MSI after packaging
+    .\Sign-Artifacts.ps1 -PfxPath cert.pfx -PfxPassword pw -Phase msi
 #>
 
 [CmdletBinding()]
@@ -63,7 +71,11 @@ param(
     [string]$Platform = "x64",
 
     [Parameter(Mandatory = $false)]
-    [string]$SolutionDir
+    [string]$SolutionDir,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("all", "binaries", "msi")]
+    [string]$Phase = "all"
 )
 
 Set-StrictMode -Version Latest
@@ -84,6 +96,7 @@ $SolutionDir = (Resolve-Path $SolutionDir).Path
 Write-Host "Solution dir : $SolutionDir"
 Write-Host "Configuration: $Configuration"
 Write-Host "Platform     : $Platform"
+Write-Host "Phase        : $Phase"
 
 # ── Locate signtool.exe ──────────────────────────────────────────────────────
 
@@ -130,20 +143,20 @@ if ($PfxPath -and -not (Test-Path $PfxPath)) {
 function Get-SignArgs {
     param([string]$FilePath)
 
-    $args = @("sign", "/fd", "sha256", "/tr", $TimestampServer, "/td", "sha256")
+    $signArgs = @("sign", "/fd", "sha256", "/tr", $TimestampServer, "/td", "sha256")
 
     if ($PfxPath) {
-        $args += @("/f", $PfxPath)
+        $signArgs += @("/f", $PfxPath)
         if ($PfxPassword) {
-            $args += @("/p", $PfxPassword)
+            $signArgs += @("/p", $PfxPassword)
         }
     }
     else {
-        $args += @("/sha1", $Thumbprint)
+        $signArgs += @("/sha1", $Thumbprint)
     }
 
-    $args += $FilePath
-    return $args
+    $signArgs += $FilePath
+    return $signArgs
 }
 
 # ── Sign a single file ──────────────────────────────────────────────────────
@@ -160,7 +173,11 @@ function Sign-File {
     Write-Host "  Signing: $FilePath"
 
     # Mask password in log output
-    $logArgs = $signArgs -replace [regex]::Escape($PfxPassword), "***"
+    if ($PfxPassword) {
+        $logArgs = $signArgs -replace [regex]::Escape($PfxPassword), "***"
+    } else {
+        $logArgs = $signArgs
+    }
     Write-Host "    signtool $($logArgs -join ' ')" -ForegroundColor DarkGray
 
     & $signtool @signArgs
@@ -180,51 +197,45 @@ function Sign-File {
     return $true
 }
 
-# ── Collect artifacts ────────────────────────────────────────────────────────
+# ── Phase: binaries (DLLs + EXE) ────────────────────────────────────────────
 
-Write-Host ""
-Write-Host "=== Collecting artifacts to sign ===" -ForegroundColor Cyan
+if ($Phase -eq "all" -or $Phase -eq "binaries") {
+    Write-Host ""
+    Write-Host "=== Signing binaries (DLLs + EXE) ===" -ForegroundColor Cyan
 
-$artifacts = @()
+    $artifacts = @(
+        (Join-Path $SolutionDir "CredentialProvider\bin\$Platform\$Configuration\GruppenMFACredentialProvider.dll"),
+        (Join-Path $SolutionDir "CredentialProviderFilter\bin\$Platform\$Configuration\GruppenMFACredentialProviderFilter.dll"),
+        (Join-Path $SolutionDir "AgentService\publish\GruppenMFA.AgentService.exe")
+    )
 
-# 1. Credential Provider DLL
-$cpDll = Join-Path $SolutionDir "CredentialProvider\bin\$Platform\$Configuration\GruppenMFACredentialProvider.dll"
-$artifacts += $cpDll
+    $signed = 0
+    foreach ($file in $artifacts) {
+        if (Sign-File $file) { $signed++ }
+    }
 
-# 2. Credential Provider Filter DLL
-$cpfDll = Join-Path $SolutionDir "CredentialProviderFilter\bin\$Platform\$Configuration\GruppenMFACredentialProviderFilter.dll"
-$artifacts += $cpfDll
-
-# 3. Agent Service EXE
-$agentExe = Join-Path $SolutionDir "AgentService\publish\GruppenMFA.AgentService.exe"
-$artifacts += $agentExe
-
-Write-Host ""
-Write-Host "=== Signing binaries (DLLs + EXE) ===" -ForegroundColor Cyan
-
-$signed = 0
-foreach ($file in $artifacts) {
-    if (Sign-File $file) { $signed++ }
+    Write-Host ""
+    Write-Host "Signed $signed binaries." -ForegroundColor Green
 }
 
-Write-Host ""
-Write-Host "Signed $signed binaries." -ForegroundColor Green
+# ── Phase: MSI ───────────────────────────────────────────────────────────────
 
-# 4. MSI (must be signed AFTER binaries are signed and embedded)
-Write-Host ""
-Write-Host "=== Signing MSI installer ===" -ForegroundColor Cyan
+if ($Phase -eq "all" -or $Phase -eq "msi") {
+    Write-Host ""
+    Write-Host "=== Signing MSI installer ===" -ForegroundColor Cyan
 
-$msiDir = Join-Path $SolutionDir "WiXSetup\bin\$Platform\$Configuration"
-$msiFiles = Get-ChildItem $msiDir -Filter "*.msi" -Recurse -ErrorAction SilentlyContinue
+    $msiDir = Join-Path $SolutionDir "WiXSetup\bin\$Platform\$Configuration"
+    $msiFiles = Get-ChildItem $msiDir -Filter "*.msi" -Recurse -ErrorAction SilentlyContinue
 
-if ($msiFiles) {
-    foreach ($msi in $msiFiles) {
-        Sign-File $msi.FullName | Out-Null
+    if ($msiFiles) {
+        foreach ($msi in $msiFiles) {
+            Sign-File $msi.FullName | Out-Null
+        }
+    }
+    else {
+        Write-Host "  No MSI files found at: $msiDir" -ForegroundColor Yellow
     }
 }
-else {
-    Write-Host "  No MSI files found at: $msiDir" -ForegroundColor Yellow
-}
 
 Write-Host ""
-Write-Host "=== Code signing complete ===" -ForegroundColor Green
+Write-Host "=== Code signing complete ($Phase) ===" -ForegroundColor Green
