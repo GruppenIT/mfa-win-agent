@@ -159,6 +159,8 @@ public:
 
 	bool otpFailReturnToFirstStep = false;
 
+	std::wstring otpText = L"";
+
 	// Autologon like https://learn.microsoft.com/en-us/troubleshoot/windows-server/user-profiles-and-logon/turn-on-automatic-logon
 	std::wstring autoLogonUsername = L"";
 	std::wstring autoLogonDomain = L"";

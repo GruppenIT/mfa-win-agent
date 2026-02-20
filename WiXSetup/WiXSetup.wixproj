@@ -14,6 +14,7 @@
     <Name>CredentialProviderSetup</Name>
     <OutputPath>bin\$(Platform)\$(Configuration)\</OutputPath>
     <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\</IntermediateOutputPath>
+    <Cultures>pt-BR</Cultures>
   </PropertyGroup>
   <!-- Debug and test configurations -->
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' Or '$(Configuration)' == 'test' ">

@@ -22,25 +22,123 @@
 **
 ** * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 -->
-<WixLocalization Culture="en-us" xmlns="http://schemas.microsoft.com/wix/2006/localization">
-  <!-- Configuration 1/2 -->
+<WixLocalization Culture="pt-BR" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+
+  <!-- ==================== Custom dialog strings ==================== -->
   <String Id="ServerUrlInfo">
-This is the GruppenMFA service URL. The protocol can be left out.
-The GruppenMFA Credential Provider always uses secure connection.
-Example: gruppenmfa.example.com/service_root/
+Esta é a URL do serviço GruppenMFA. O protocolo pode ser omitido.
+O GruppenMFA Credential Provider sempre utiliza conexão segura.
+Exemplo: gruppenmfa.example.com/service_root/
   </String>
   <String Id="LoginTextInfo">
-This is the welcome-message to be displayed in the Windows login page.
+Esta é a mensagem de boas-vindas exibida na tela de login do Windows.
 
-
-Note: Leave it empty to keep the default message ("GruppenMFA Login").
+Nota: Deixe em branco para manter a mensagem padrão ("GruppenMFA Login").
   </String>
-  
-  <!-- Configuration 2/2 -->
   <String Id="UserConfigurationInfo">
-The following settings are optional texts and icons to customize the login.
+As configurações a seguir são textos e ícones opcionais para personalizar o login.
   </String>
   <String Id="V1BitmapPathInfo">
-The path to a custom 128x128px 24-bit Bitmap (*.bmp) to show on the logon tile.
+O caminho para um Bitmap personalizado de 128x128px 24-bit (*.bmp) para exibir no tile de logon.
   </String>
+
+  <!-- ==================== WiX UI standard strings ==================== -->
+  <!-- Common buttons -->
+  <String Id="WixUIBack" Overridable="yes">&amp;Voltar</String>
+  <String Id="WixUINext" Overridable="yes">&amp;Avançar</String>
+  <String Id="WixUICancel" Overridable="yes">Cancelar</String>
+  <String Id="WixUIInstall" Overridable="yes">&amp;Instalar</String>
+  <String Id="WixUIFinish" Overridable="yes">&amp;Concluir</String>
+  <String Id="WixUIRemove" Overridable="yes">&amp;Remover</String>
+  <String Id="WixUIRepair" Overridable="yes">Re&amp;parar</String>
+  <String Id="WixUIRetry" Overridable="yes">&amp;Tentar novamente</String>
+  <String Id="WixUIIgnore" Overridable="yes">&amp;Ignorar</String>
+  <String Id="WixUIYes" Overridable="yes">&amp;Sim</String>
+  <String Id="WixUINo" Overridable="yes">&amp;Não</String>
+  <String Id="WixUIClose" Overridable="yes">&amp;Fechar</String>
+  <String Id="WixUIBrowse" Overridable="yes">P&amp;rocurar</String>
+  <String Id="WixUIOK" Overridable="yes">OK</String>
+  <String Id="WixUIReset" Overridable="yes">&amp;Redefinir</String>
+  <String Id="WixUIPrint" Overridable="yes">&amp;Imprimir</String>
+
+  <!-- Welcome dialog -->
+  <String Id="WelcomeDlgTitle" Overridable="yes">{\WixUI_Font_Bigger}Bem-vindo ao Assistente de Instalação do [ProductName]</String>
+  <String Id="WelcomeDlgDescription" Overridable="yes">O Assistente de Instalação irá instalar o [ProductName] no seu computador. Clique em Avançar para continuar ou Cancelar para sair do assistente.</String>
+
+  <!-- License Agreement dialog -->
+  <String Id="LicenseAgreementDlgTitle" Overridable="yes">{\WixUI_Font_Title}Contrato de Licença de Uso</String>
+  <String Id="LicenseAgreementDlgDescription" Overridable="yes">Leia o contrato de licença a seguir antes de instalar o [ProductName].</String>
+  <String Id="LicenseAgreementDlgLicenseAcceptedCheckBox" Overridable="yes">Eu &amp;aceito os termos do Contrato de Licença</String>
+  <String Id="LicenseAgreementDlgAccept" Overridable="yes">Eu &amp;aceito os termos do Contrato de Licença</String>
+  <String Id="LicenseAgreementDlgDecline" Overridable="yes">Eu &amp;não aceito os termos do Contrato de Licença</String>
+
+  <!-- Customize / Feature dialog -->
+  <String Id="CustomizeDlgTitle" Overridable="yes">{\WixUI_Font_Title}Instalação Personalizada</String>
+  <String Id="CustomizeDlgDescription" Overridable="yes">Selecione os recursos que deseja instalar.</String>
+
+  <!-- Verify Ready dialog -->
+  <String Id="VerifyReadyDlgTitle" Overridable="yes">{\WixUI_Font_Title}Pronto para Instalar</String>
+  <String Id="VerifyReadyDlgInstallTitle" Overridable="yes">{\WixUI_Font_Title}Pronto para instalar o [ProductName]</String>
+  <String Id="VerifyReadyDlgInstallText" Overridable="yes">Clique em Instalar para iniciar a instalação.</String>
+  <String Id="VerifyReadyDlgRepairTitle" Overridable="yes">{\WixUI_Font_Title}Pronto para reparar o [ProductName]</String>
+  <String Id="VerifyReadyDlgRepairText" Overridable="yes">Clique em Reparar para iniciar a reparação.</String>
+  <String Id="VerifyReadyDlgRemoveTitle" Overridable="yes">{\WixUI_Font_Title}Pronto para remover o [ProductName]</String>
+  <String Id="VerifyReadyDlgRemoveText" Overridable="yes">Clique em Remover para remover o [ProductName] do seu computador.</String>
+
+  <!-- Progress dialog -->
+  <String Id="ProgressDlgTitle" Overridable="yes">{\WixUI_Font_Title}Instalando o [ProductName]</String>
+  <String Id="ProgressDlgTitleInstalling" Overridable="yes">Instalando</String>
+  <String Id="ProgressDlgTitleRemoving" Overridable="yes">Removendo</String>
+  <String Id="ProgressDlgTitleRepairing" Overridable="yes">Reparando</String>
+  <String Id="ProgressDlgStatusLabel" Overridable="yes">Status:</String>
+
+  <!-- Exit (Finish) dialog -->
+  <String Id="ExitDlgTitle" Overridable="yes">{\WixUI_Font_Bigger}Instalação Concluída</String>
+  <String Id="ExitDlgDescription" Overridable="yes">O Assistente de Instalação concluiu a instalação do [ProductName] com sucesso. Clique em Concluir para sair do assistente.</String>
+
+  <!-- Cancel dialog -->
+  <String Id="CancelDlg" Overridable="yes">[ProductName]</String>
+  <String Id="CancelDlgText" Overridable="yes">Tem certeza de que deseja cancelar a instalação do [ProductName]?</String>
+
+  <!-- Error dialog -->
+  <String Id="ErrorDlg" Overridable="yes">Erro de Instalação</String>
+
+  <!-- Disk Cost dialog -->
+  <String Id="DiskCostDlgTitle" Overridable="yes">{\WixUI_Font_Title}Espaço em Disco</String>
+  <String Id="DiskCostDlgDescription" Overridable="yes">O espaço em disco necessário para a instalação dos recursos selecionados.</String>
+
+  <!-- Files in Use dialog -->
+  <String Id="FilesInUseDlgTitle" Overridable="yes">{\WixUI_Font_Title}Arquivos em Uso</String>
+  <String Id="FilesInUseDlgDescription" Overridable="yes">Os seguintes aplicativos estão usando arquivos que precisam ser atualizados. Feche esses aplicativos e clique em Tentar novamente.</String>
+
+  <!-- Maintenance Welcome dialog -->
+  <String Id="MaintenanceWelcomeDlgTitle" Overridable="yes">{\WixUI_Font_Bigger}Assistente de Manutenção do [ProductName]</String>
+  <String Id="MaintenanceWelcomeDlgDescription" Overridable="yes">O Assistente de Manutenção permite modificar, reparar ou remover o [ProductName]. Clique em Avançar para continuar.</String>
+
+  <!-- Maintenance Type dialog -->
+  <String Id="MaintenanceTypeDlgTitle" Overridable="yes">{\WixUI_Font_Title}Manutenção do [ProductName]</String>
+  <String Id="MaintenanceTypeDlgDescription" Overridable="yes">Selecione a operação que deseja realizar.</String>
+  <String Id="MaintenanceTypeDlgRepairButton" Overridable="yes">Re&amp;parar</String>
+  <String Id="MaintenanceTypeDlgRepairText" Overridable="yes">Reparar erros de instalação do programa.</String>
+  <String Id="MaintenanceTypeDlgRemoveButton" Overridable="yes">&amp;Remover</String>
+  <String Id="MaintenanceTypeDlgRemoveText" Overridable="yes">Remover o [ProductName] do seu computador.</String>
+  <String Id="MaintenanceTypeDlgChangeButton" Overridable="yes">&amp;Alterar</String>
+  <String Id="MaintenanceTypeDlgChangeText" Overridable="yes">Alterar os recursos do programa que estão instalados.</String>
+
+  <!-- User Exit dialog -->
+  <String Id="UserExitTitle" Overridable="yes">{\WixUI_Font_Bigger}Instalação Interrompida</String>
+  <String Id="UserExitDescription" Overridable="yes">A instalação do [ProductName] foi interrompida. O sistema não foi modificado. Para concluir a instalação em outro momento, execute o assistente novamente.</String>
+
+  <!-- Fatal Error dialog -->
+  <String Id="FatalErrorTitle" Overridable="yes">{\WixUI_Font_Bigger}Erro na Instalação do [ProductName]</String>
+  <String Id="FatalErrorDescription1" Overridable="yes">O Assistente de Instalação do [ProductName] foi encerrado prematuramente devido a um erro.</String>
+  <String Id="FatalErrorDescription2" Overridable="yes">Clique em Concluir para sair do assistente.</String>
+
+  <!-- Downgrade error -->
+  <String Id="DowngradeErrorMessage" Overridable="yes">Uma versão mais recente do [ProductName] já está instalada.</String>
+
+  <!-- Out of Disk Space -->
+  <String Id="OutOfDiskDlgTitle" Overridable="yes">{\WixUI_Font_Title}Espaço em Disco Insuficiente</String>
+  <String Id="OutOfDiskDlgDescription" Overridable="yes">Não há espaço em disco suficiente. Reduza o espaço necessário ou selecione menos recursos.</String>
+
 </WixLocalization>

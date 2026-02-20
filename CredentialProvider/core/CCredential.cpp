@@ -727,9 +727,11 @@ HRESULT CCredential::SetMode(Mode mode)
 			const bool hideFirstStepError = _config->hideFirstStepResponseError;
 			const bool isOldModeUsername = IsModeOneOf(oldMode, Mode::USERNAME, Mode::USERNAMEPASSWORD);
 			const bool isRejected = hasLastResponse && _config->lastResponse->authenticationStatus == AuthenticationStatus::REJECT;
+			// Use custom otp_text from registry if available, otherwise fall back to locale default
+			const wstring otpPrompt = _config->otpText.empty() ? _util.GetText(TEXT_OTP_PROMPT) : _config->otpText;
 			if (hideFirstStepError && isOldModeUsername && isRejected)
 			{
-				smallText = _util.GetText(TEXT_OTP_PROMPT);
+				smallText = otpPrompt;
 			}
 			else if (hasLastResponse && hasMessage && isAuthUnsuccessful)
 			{
@@ -737,7 +739,7 @@ HRESULT CCredential::SetMode(Mode mode)
 			}
 			else
 			{
-				smallText = _util.GetText(TEXT_OTP_PROMPT);
+				smallText = otpPrompt;
 			}
 
 			break;

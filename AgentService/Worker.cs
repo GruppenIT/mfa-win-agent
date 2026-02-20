@@ -100,11 +100,10 @@ public sealed class Worker : BackgroundService
         _logger.LogInformation("--- Starting initial checkin + config sync ---");
         bool serverReachable = await DoCheckinAndSyncAsync(apiClient, hostname, agentVersion, osVersion, tamperProtection, stoppingToken);
 
-        // Initial offline cache fetch (if enabled in config)
+        // Initial offline cache fetch (if enabled in config or registry)
         if (serverReachable)
         {
-            var config = _configManager.LoadLocalConfig();
-            if (config?.OfflineMfaEnabled == true)
+            if (_configManager.IsOfflineMfaEnabled())
             {
                 _logger.LogInformation("--- Fetching initial offline cache ---");
                 await _offlineCacheService.FetchAndStoreAsync(apiClient, hostname, stoppingToken);
@@ -155,8 +154,7 @@ public sealed class Worker : BackgroundService
                 if (serverReachable)
                 {
                     // Update offline cache if enabled
-                    var config = _configManager.LoadLocalConfig();
-                    if (config?.OfflineMfaEnabled == true)
+                    if (_configManager.IsOfflineMfaEnabled())
                     {
                         await _offlineCacheService.FetchAndStoreAsync(apiClient, hostname, stoppingToken);
                     }

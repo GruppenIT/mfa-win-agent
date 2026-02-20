@@ -142,6 +142,32 @@ public sealed class ConfigManager
     }
 
     /// <summary>
+    /// Check if offline MFA is enabled, checking config first, then registry.
+    /// </summary>
+    public bool IsOfflineMfaEnabled()
+    {
+        // Check local config first
+        var config = LoadLocalConfig();
+        if (config?.OfflineMfaEnabled == true)
+            return true;
+
+        // Fallback: check registry directly (may have been set by MSI installer or manually)
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(CpRegistryPath);
+            var val = key?.GetValue("offline_mfa_enabled");
+            if (val is int intVal) return intVal != 0;
+            if (val is string strVal) return strVal == "1";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not read offline_mfa_enabled from registry");
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Load the current config hash from the persisted state.
     /// </summary>
     private void LoadConfigHash()
@@ -275,14 +301,21 @@ public sealed class ConfigManager
         // Debug
         key.SetValue("debug_log", config.DebugLogging ? 1 : 0, RegistryValueKind.DWord);
 
-        // Offline MFA settings
-        key.SetValue("offline_mfa_enabled", config.OfflineMfaEnabled ? 1 : 0, RegistryValueKind.DWord);
-        key.SetValue("offline_cache_ttl_days", config.OfflineCacheTtlDays, RegistryValueKind.DWord);
-        key.SetValue("offline_max_cached_users", config.OfflineMaxCachedUsers, RegistryValueKind.DWord);
-        key.SetValue("offline_brute_force_limit", config.OfflineBruteForceLimit, RegistryValueKind.DWord);
-        key.SetValue("offline_lockout_minutes", config.OfflineLockoutMinutes, RegistryValueKind.DWord);
-        key.SetValue("offline_require_online_days", config.OfflineRequireOnlineDays, RegistryValueKind.DWord);
-        key.SetValue("offline_on_the_fly_grace_seconds", config.OfflineOnTheFlyGraceSeconds, RegistryValueKind.DWord);
+        // Offline MFA settings (only write when server explicitly provides them)
+        if (config.OfflineMfaEnabled.HasValue)
+            key.SetValue("offline_mfa_enabled", config.OfflineMfaEnabled.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.OfflineCacheTtlDays.HasValue)
+            key.SetValue("offline_cache_ttl_days", config.OfflineCacheTtlDays.Value, RegistryValueKind.DWord);
+        if (config.OfflineMaxCachedUsers.HasValue)
+            key.SetValue("offline_max_cached_users", config.OfflineMaxCachedUsers.Value, RegistryValueKind.DWord);
+        if (config.OfflineBruteForceLimit.HasValue)
+            key.SetValue("offline_brute_force_limit", config.OfflineBruteForceLimit.Value, RegistryValueKind.DWord);
+        if (config.OfflineLockoutMinutes.HasValue)
+            key.SetValue("offline_lockout_minutes", config.OfflineLockoutMinutes.Value, RegistryValueKind.DWord);
+        if (config.OfflineRequireOnlineDays.HasValue)
+            key.SetValue("offline_require_online_days", config.OfflineRequireOnlineDays.Value, RegistryValueKind.DWord);
+        if (config.OfflineOnTheFlyGraceSeconds.HasValue)
+            key.SetValue("offline_on_the_fly_grace_seconds", config.OfflineOnTheFlyGraceSeconds.Value, RegistryValueKind.DWord);
 
         _logger.LogDebug("Registry synced to {Path}", CpRegistryPath);
     }

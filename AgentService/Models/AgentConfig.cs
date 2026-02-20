@@ -96,25 +96,25 @@ public class AgentConfig
     [JsonPropertyName("logRetentionDays")]
     public int LogRetentionDays { get; set; } = 7;
 
-    // Offline MFA (from server config)
+    // Offline MFA (from server config — nullable so absent fields don't overwrite local registry)
     [JsonPropertyName("offline_mfa_enabled")]
-    public bool OfflineMfaEnabled { get; set; } = false;
+    public bool? OfflineMfaEnabled { get; set; }
 
     [JsonPropertyName("offline_cache_ttl_days")]
-    public int OfflineCacheTtlDays { get; set; } = 7;
+    public int? OfflineCacheTtlDays { get; set; }
 
     [JsonPropertyName("offline_max_cached_users")]
-    public int OfflineMaxCachedUsers { get; set; } = 200;
+    public int? OfflineMaxCachedUsers { get; set; }
 
     [JsonPropertyName("offline_brute_force_limit")]
-    public int OfflineBruteForceLimit { get; set; } = 3;
+    public int? OfflineBruteForceLimit { get; set; }
 
     [JsonPropertyName("offline_lockout_minutes")]
-    public int OfflineLockoutMinutes { get; set; } = 30;
+    public int? OfflineLockoutMinutes { get; set; }
 
     [JsonPropertyName("offline_require_online_days")]
-    public int OfflineRequireOnlineDays { get; set; } = 30;
+    public int? OfflineRequireOnlineDays { get; set; }
 
     [JsonPropertyName("offline_on_the_fly_grace_seconds")]
-    public int OfflineOnTheFlyGraceSeconds { get; set; } = 60;
+    public int? OfflineOnTheFlyGraceSeconds { get; set; }
 }
