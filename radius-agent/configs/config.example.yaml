@@ -1,0 +1,74 @@
+# MFA Gruppen RADIUS + IdP Agent Configuration
+# Copy this file to /etc/mfa-gruppen/radius-agent.yaml and adjust values.
+
+server:
+  agent_id: ""  # Set by backend during registration, or generate a UUID
+
+# MFA Gruppen Backend API
+api:
+  base_url: "https://mfa.gruppen.com.br"
+  key: "mfa_your_api_key_here"
+  timeout: 30  # seconds
+
+# Logging
+logging:
+  level: "info"   # debug, info, warn, error
+  format: "json"  # json, text
+
+# RADIUS Authentication Server
+radius:
+  enabled: true
+  port: 1812
+  secret: "your_radius_shared_secret"
+  ldap:
+    server: "ldap://dc01.empresa.local:389"
+    base_dn: "DC=empresa,DC=local"
+    bind_dn: "CN=svc-mfa,OU=Services,DC=empresa,DC=local"
+    bind_password: "service_account_password"
+    user_filter: "(sAMAccountName=%s)"
+    tls: false
+    starttls: true
+
+# Identity Provider (IdP) Broker
+idp:
+  enabled: true
+  port: 8443
+
+  tls:
+    cert: /etc/mfa-gruppen/certs/idp.crt
+    key: /etc/mfa-gruppen/certs/idp.key
+    auto_generate: true  # Generate self-signed cert if not present
+
+  entity_id: "https://mfa-agent.empresa.local:8443/saml"
+  session_timeout: 3600  # seconds
+
+  # Trusted Service Providers
+  trusted_sps:
+    - name: "vCenter"
+      entity_id: "https://vcenter.empresa.local/websso"
+      acs_url: "https://vcenter.empresa.local/websso/SAML2/SSO/vsphere.local"
+      attributes:
+        - name: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn"
+          source: "upn"
+        - name: "http://schemas.xmlsoap.org/claims/Group"
+          source: "memberOf"
+
+    # Add more SPs as needed:
+    # - name: "Another App"
+    #   entity_id: "https://app.empresa.local/saml"
+    #   acs_url: "https://app.empresa.local/saml/acs"
+    #   attributes:
+    #     - name: "email"
+    #       source: "email"
+
+  # LDAP configuration for IdP authentication
+  ldap:
+    use_radius_config: true  # Reuse the RADIUS LDAP config above
+    # OR specify separate LDAP config:
+    # server: "ldap://dc01.empresa.local:389"
+    # base_dn: "DC=empresa,DC=local"
+    # bind_dn: "CN=svc-mfa,OU=Services,DC=empresa,DC=local"
+    # bind_password: "service_account_password"
+    # user_filter: "(sAMAccountName=%s)"
+    # tls: false
+    # starttls: true
