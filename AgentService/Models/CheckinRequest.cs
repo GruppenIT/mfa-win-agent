@@ -15,4 +15,8 @@ public class CheckinRequest
 
     [JsonPropertyName("agentVersion")]
     public string AgentVersion { get; set; } = string.Empty;
+
+    [JsonPropertyName("endpointIp")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EndpointIp { get; set; }
 }

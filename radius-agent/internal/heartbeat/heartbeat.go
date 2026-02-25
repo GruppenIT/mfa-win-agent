@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -112,6 +113,10 @@ func (s *Sender) send(ctx context.Context) {
 		},
 	}
 
+	if ip := getLocalIP(); ip != "" {
+		payload["endpointIp"] = ip
+	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		slog.Error("heartbeat marshal error", "error", err)
@@ -139,4 +144,61 @@ func (s *Sender) send(ctx context.Context) {
 	} else {
 		slog.Debug("heartbeat sent successfully")
 	}
+}
+
+// getLocalIP detects the primary local IPv4 address by opening a UDP
+// connection to an external address. The OS routing table selects the
+// outbound interface with the default gateway, giving us the correct
+// corporate/LAN IP. Returns "" if detection fails.
+func getLocalIP() string {
+	conn, err := net.DialTimeout("udp4", "8.8.8.8:80", 2*time.Second)
+	if err != nil {
+		slog.Debug("failed to detect local IP via UDP dial", "error", err)
+		return getLocalIPFallback()
+	}
+	defer conn.Close()
+
+	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+		ip := addr.IP
+		if ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+			return getLocalIPFallback()
+		}
+		return ip.String()
+	}
+	return getLocalIPFallback()
+}
+
+// getLocalIPFallback iterates network interfaces to find a non-loopback,
+// non-link-local IPv4 address.
+func getLocalIPFallback() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.To4() == nil {
+				continue
+			}
+			if ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+				continue
+			}
+			return ip.String()
+		}
+	}
+	return ""
 }
