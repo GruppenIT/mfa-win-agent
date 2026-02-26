@@ -1523,12 +1523,9 @@ HRESULT CCredential::GetSerialization(
 
 			if (useCredPack)
 			{
-				// Determine the username to pass for authentication.
-				// For cloud accounts, we need the full UPN (user@domain.com).
-				std::wstring credUsername = _config->credential.username;
-				std::wstring credDomain = _config->credential.domain;
-
-				// Check if UPN is available and has a real FQDN domain
+				// Determine how to authenticate.
+				// For cloud accounts (UPN format), check if we have the original
+				// username and domain split from CopyUsernameField.
 				const auto& upn = _config->credential.upn;
 				bool upnHasFqdn = false;
 				bool isCloudAccount = false;
@@ -1539,58 +1536,47 @@ HRESULT CCredential::GetSerialization(
 						&& upn.find(L'.', atPos) != std::wstring::npos);
 				}
 
-				if (upnHasFqdn)
-				{
-					// UPN is valid (e.g. rodrigo@empresa.com.br from step 1)
-					credUsername = upn;
-					credDomain = L"";
-					isCloudAccount = true;
-					PIDebug(L"Cloud account detected, UPN: " + upn);
-				}
-				else if (!upn.empty() && _config->piconfig.sendUPN
+				if (upnHasFqdn || (!upn.empty() && _config->piconfig.sendUPN
 					&& !_config->piconfig.defaultRealm.empty()
-					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
+					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos))
 				{
-					// User originally typed a UPN (upn is non-empty, e.g. "rodrigo@WORKGROUP")
-					// but the domain is non-FQDN (Windows overwrote it on step 2).
-					// Reconstruct from username + default_realm.
-					// NOTE: If upn is EMPTY, user typed a plain username (e.g. "teste")
-					// — this is a local account, do NOT reconstruct.
-					std::wstring reconstructed = _config->credential.username
-						+ L"@" + _config->piconfig.defaultRealm;
-					credUsername = reconstructed;
-					credDomain = L"";
 					isCloudAccount = true;
-					PIDebug(L"Cloud account detected, reconstructed UPN: " + reconstructed);
-				}
-				else
-				{
-					// Plain username (local/domain account) — pass as-is.
-					PIDebug(L"Local account: " + credUsername + L" domain: " + credDomain);
 				}
 
 				if (isCloudAccount)
 				{
-					// Azure AD / Entra ID account: use CloudAPLogon which creates a
-					// KERB_INTERACTIVE_UNLOCK_LOGON with the CloudAP auth package.
-					// On AAD-joined machines, only CloudAP can authenticate Azure AD
-					// accounts — the Negotiate package (Kerberos+NTLM) cannot.
-					PIDebug(L"Trying CloudAPLogon for: " + credUsername);
-					hr = _util.CloudAPLogon(pcpgsr, pcpcs, _config->provider.cpu,
-						credUsername, _config->credential.password);
+					// Azure AD / Entra ID account: use KerberosLogon with explicit
+					// domain as the Kerberos realm. On AAD-joined machines with Cloud
+					// Kerberos Trust (CloudTgt=YES), Negotiate/Kerberos can reach
+					// Azure AD's Cloud KDC for the domain realm.
+					//
+					// This is different from CredPack which sends domain="" + full UPN,
+					// causing Kerberos to not know which realm to use.
+					//
+					// credential.username = "rodrigo" (split from UPN by CopyUsernameField)
+					// credential.domain   = "gruppen.com.br" (split from UPN)
+					// → Kerberos realm = "GRUPPEN.COM.BR" → Cloud KDC → Azure AD auth
+					std::wstring kerbDomain = _config->credential.domain;
+					std::wstring kerbUsername = _config->credential.username;
 
-					if (FAILED(hr))
+					// If domain was overwritten (e.g. WORKGROUP), use default_realm
+					if (kerbDomain.empty() || kerbDomain.find(L'.') == std::wstring::npos)
 					{
-						// CloudAP not available (non-AAD machine, hybrid, etc.)
-						// Fall back to CredPack + Negotiate (works for on-prem AD).
-						PIDebug("CloudAPLogon failed, falling back to CredPack + Negotiate");
-						hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
-							credUsername, _config->credential.password, credDomain);
+						kerbDomain = _config->piconfig.defaultRealm;
 					}
+
+					PIDebug(L"Cloud account: KerberosLogon with user=" + kerbUsername
+						+ L" domain=" + kerbDomain + L" (Cloud Kerberos Trust)");
+
+					hr = _util.KerberosLogon(pcpgsr, pcpcs, _config->provider.cpu,
+						kerbUsername, _config->credential.password, kerbDomain);
 				}
 				else
 				{
 					// Local/domain account: use CredPack + Negotiate
+					std::wstring credUsername = _config->credential.username;
+					std::wstring credDomain = _config->credential.domain;
+					PIDebug(L"Local account: CredPack with user=" + credUsername + L" domain=" + credDomain);
 					hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
 						credUsername, _config->credential.password, credDomain);
 				}
