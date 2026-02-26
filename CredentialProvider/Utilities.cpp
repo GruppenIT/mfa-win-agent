@@ -329,53 +329,74 @@ HRESULT Utilities::CloudAPLogon(
 
 	HRESULT hr = S_OK;
 
-	PWSTR pwzProtectedPassword;
-	hr = ProtectIfNecessaryAndCopyPassword(password.c_str(), cpus, &pwzProtectedPassword);
+	// Look up the CloudAP auth package first — if not available, fail early
+	// so the caller can fall back to CredPack + Negotiate.
+	ULONG ulAuthPackage;
+	hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
+	if (FAILED(hr))
+	{
+		PIDebug("CloudAPLogon: CloudAP auth package not available");
+		return hr;
+	}
+
+	PIDebug("CloudAPLogon: CloudAP auth package found");
+
+	// Create the credential buffer using CRED_PACK_ID_PROVIDER_CREDENTIALS.
+	// This flag tells CredPackAuthenticationBufferW to create a buffer in the
+	// "identity provider" format, which CloudAP can process. The standard
+	// flag (0) creates a KERB_INTERACTIVE_LOGON buffer that only the Negotiate
+	// package understands. KERB_INTERACTIVE_UNLOCK_LOGON is also rejected by CloudAP.
+	LPWSTR lpwszUsername = new wchar_t[upn.size() + 1];
+	wcscpy_s(lpwszUsername, (upn.size() + 1), upn.c_str());
+
+	LPWSTR lpwszPassword = new wchar_t[password.size() + 1];
+	wcscpy_s(lpwszPassword, (password.size() + 1), password.c_str());
+
+	DWORD size = 0;
+	BYTE* rawbits = NULL;
+
+	// CRED_PACK_ID_PROVIDER_CREDENTIALS = 0x8
+	// This creates a credential buffer suitable for identity providers (CloudAP, NGC, etc.)
+	const DWORD packFlags = CRED_PACK_ID_PROVIDER_CREDENTIALS;
+	PIDebug("CloudAPLogon: using CRED_PACK_ID_PROVIDER_CREDENTIALS flag");
+
+	if (!CredPackAuthenticationBufferW(packFlags, lpwszUsername, lpwszPassword, rawbits, &size))
+	{
+		if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+		{
+			rawbits = (BYTE*)HeapAlloc(GetProcessHeap(), 0, size);
+
+			if (!CredPackAuthenticationBufferW(packFlags, lpwszUsername, lpwszPassword, rawbits, &size))
+			{
+				PIDebug("CloudAPLogon: CredPackAuthenticationBufferW failed");
+				HeapFree(GetProcessHeap(), 0, rawbits);
+				hr = HRESULT_FROM_WIN32(GetLastError());
+			}
+			else
+			{
+				PIDebug("CloudAPLogon: CredPack buffer created successfully, size=" + std::to_string(size));
+				pcpcs->rgbSerialization = rawbits;
+				pcpcs->cbSerialization = size;
+			}
+		}
+		else
+		{
+			PIDebug("CloudAPLogon: CredPackAuthenticationBufferW initial call failed, error=" + std::to_string(GetLastError()));
+			hr = HRESULT_FROM_WIN32(GetLastError());
+		}
+	}
 
 	if (SUCCEEDED(hr))
 	{
-		KERB_INTERACTIVE_UNLOCK_LOGON kiul;
-
-		// For Azure AD UPN-based auth, domain must be empty.
-		// CloudAP routes the authentication based on the UPN itself.
-		LPWSTR lpwszDomain = new wchar_t[1];
-		lpwszDomain[0] = L'\0';
-
-		LPWSTR lpwszUsername = new wchar_t[upn.size() + 1];
-		wcscpy_s(lpwszUsername, (upn.size() + 1), upn.c_str());
-
-		hr = KerbInteractiveUnlockLogonInit(lpwszDomain, lpwszUsername, pwzProtectedPassword, cpus, &kiul);
-
-		if (SUCCEEDED(hr))
-		{
-			hr = KerbInteractiveUnlockLogonPack(kiul, &pcpcs->rgbSerialization, &pcpcs->cbSerialization);
-
-			if (SUCCEEDED(hr))
-			{
-				ULONG ulAuthPackage;
-				hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
-
-				if (SUCCEEDED(hr))
-				{
-					PIDebug("CloudAPLogon: using CloudAP auth package");
-					pcpcs->ulAuthenticationPackage = ulAuthPackage;
-					pcpcs->clsidCredentialProvider = CLSID_CSample;
-					*pcpgsr = CPGSR_RETURN_CREDENTIAL_FINISHED;
-				}
-				else
-				{
-					PIDebug("CloudAPLogon: CloudAP not available");
-					// Don't fall back to Negotiate here — let the caller
-					// decide whether to use CredPack + Negotiate instead.
-				}
-			}
-		}
-
-		delete[] lpwszDomain;
-		delete[] lpwszUsername;
-
-		CoTaskMemFree(pwzProtectedPassword);
+		pcpcs->ulAuthenticationPackage = ulAuthPackage;
+		pcpcs->clsidCredentialProvider = CLSID_CSample;
+		*pcpgsr = CPGSR_RETURN_CREDENTIAL_FINISHED;
+		PIDebug("CloudAPLogon: serialization complete, using CloudAP auth package");
 	}
+
+	SecureZeroMemory(lpwszPassword, sizeof(wchar_t) * (password.size() + 1));
+	delete[] lpwszUsername;
+	delete[] lpwszPassword;
 
 	return hr;
 }
