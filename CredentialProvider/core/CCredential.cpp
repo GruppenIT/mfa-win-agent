@@ -1488,14 +1488,27 @@ HRESULT CCredential::GetSerialization(
 			}
 			else if (!useCredPack && _config->credPackMode == 0)
 			{
-				// credpack_mode=0 (auto): detect cloud domains
-				// Cloud domains contain dots (e.g. contoso.onmicrosoft.com, empresa.com.br)
+				// credpack_mode=0 (auto): detect cloud accounts
+				// Check 1: domain contains dots (e.g. contoso.onmicrosoft.com, empresa.com.br)
 				// On-prem NetBIOS domains are single-label (e.g. EMPRESA, CONTOSO)
 				const auto& dom = _config->credential.domain;
 				if (!dom.empty() && dom.find(L'.') != std::wstring::npos)
 				{
 					PIDebug(L"Using CredPack: cloud/FQDN domain detected: " + dom);
 					useCredPack = true;
+				}
+				// Check 2: UPN has a real FQDN domain (preserved from step 1)
+				// This catches Entra ID on WORKGROUP machines where domain got
+				// overwritten to "WORKGROUP" but we still have the original UPN
+				if (!useCredPack && !_config->credential.upn.empty())
+				{
+					auto atPos = _config->credential.upn.find(L'@');
+					if (atPos != std::wstring::npos
+						&& _config->credential.upn.find(L'.', atPos) != std::wstring::npos)
+					{
+						PIDebug(L"Using CredPack: cloud UPN detected: " + _config->credential.upn);
+						useCredPack = true;
+					}
 				}
 			}
 

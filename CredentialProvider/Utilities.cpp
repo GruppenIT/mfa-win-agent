@@ -604,8 +604,22 @@ HRESULT Utilities::CopyUsernameField()
 
 	if (!domain.empty())
 	{
-		PIDebug(L"Changing domain from '" + _config->credential.domain + L"' to '" + domain + L"'");
-		_config->credential.domain = domain;
+		// Protect the domain the same way we protect UPN: if we already have a
+		// real FQDN domain (with dot) from step 1, don't overwrite it with a
+		// non-FQDN name like "WORKGROUP" that Windows injects on step 2.
+		const auto& existingDomain = _config->credential.domain;
+		bool existingDomainHasDot = existingDomain.find(L'.') != std::wstring::npos;
+		bool newDomainHasDot = domain.find(L'.') != std::wstring::npos;
+
+		if (existingDomainHasDot && !newDomainHasDot)
+		{
+			PIDebug(L"Keeping existing FQDN domain '" + existingDomain + L"' (new '" + domain + L"' is non-FQDN)");
+		}
+		else
+		{
+			PIDebug(L"Changing domain from '" + existingDomain + L"' to '" + domain + L"'");
+			_config->credential.domain = domain;
+		}
 	}
 	else
 	{
