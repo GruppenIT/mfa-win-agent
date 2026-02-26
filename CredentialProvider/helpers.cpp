@@ -440,6 +440,43 @@ HRESULT RetrieveNegotiateAuthPackage(__out ULONG* pulAuthPackage)
 }
 
 //
+// Retrieves the 'CloudAP' AuthPackage from the LSA. This is required for
+// Azure AD / Entra ID accounts on Azure AD Joined machines, where the
+// Negotiate package (Kerberos+NTLM) cannot reach the CloudAP provider.
+//
+HRESULT RetrieveCloudAPAuthPackage(__out ULONG* pulAuthPackage)
+{
+	HRESULT hr;
+	HANDLE hLsa;
+
+	NTSTATUS status = LsaConnectUntrusted(&hLsa);
+	if (SUCCEEDED(HRESULT_FROM_NT(status)))
+	{
+		ULONG ulAuthPackage;
+		LSA_STRING lsaszCloudAPName;
+		_LsaInitString(&lsaszCloudAPName, "CloudAP");
+
+		status = LsaLookupAuthenticationPackage(hLsa, &lsaszCloudAPName, &ulAuthPackage);
+		if (SUCCEEDED(HRESULT_FROM_NT(status)))
+		{
+			*pulAuthPackage = ulAuthPackage;
+			hr = S_OK;
+		}
+		else
+		{
+			hr = HRESULT_FROM_NT(status);
+		}
+		LsaDeregisterLogonProcess(hLsa);
+	}
+	else
+	{
+		hr = HRESULT_FROM_NT(status);
+	}
+
+	return hr;
+}
+
+//
 // Return a copy of pwzToProtect encrypted with the CredProtect API.
 //
 // pwzToProtect must not be NULL or the empty string.
