@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using GruppenMFA.AgentService.Helpers;
 using GruppenMFA.AgentService.Models;
 using GruppenMFA.AgentService.Services;
@@ -210,15 +213,18 @@ public sealed class Worker : BackgroundService
         CancellationToken ct)
     {
         // 1. Checkin
+        var endpointIp = GetLocalIPAddress();
         var checkinRequest = new CheckinRequest
         {
             Hostname = hostname,
             AgentType = "CP",
             OsVersion = osVersion,
-            AgentVersion = agentVersion
+            AgentVersion = agentVersion,
+            EndpointIp = endpointIp
         };
 
-        _logger.LogInformation("[Checkin] POST /api/agents/checkin — hostname={Hostname}, agentType=CP", hostname);
+        _logger.LogInformation("[Checkin] POST /api/agents/checkin — hostname={Hostname}, agentType=CP, endpointIp={Ip}",
+            hostname, endpointIp ?? "(not detected)");
         var checkinResponse = await apiClient.CheckinAsync(checkinRequest, ct);
 
         if (checkinResponse == null)
@@ -310,5 +316,60 @@ public sealed class Worker : BackgroundService
         {
             return Environment.OSVersion.ToString();
         }
+    }
+
+    /// <summary>
+    /// Detects the primary local IPv4 address of this machine.
+    /// Prioritizes interfaces that have a default gateway configured.
+    /// Returns null if detection fails (the checkin field is optional).
+    /// </summary>
+    private string? GetLocalIPAddress()
+    {
+        try
+        {
+            // Strategy 1: Find interfaces with a default gateway (most reliable for
+            // identifying the primary network interface on the corporate network)
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(ni => ni.OperationalStatus == OperationalStatus.Up
+                          && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback);
+
+            foreach (var ni in interfaces)
+            {
+                var props = ni.GetIPProperties();
+                var hasGateway = props.GatewayAddresses
+                    .Any(g => !g.Address.Equals(IPAddress.Any));
+
+                if (!hasGateway)
+                    continue;
+
+                var ipv4 = props.UnicastAddresses
+                    .Where(ua => ua.Address.AddressFamily == AddressFamily.InterNetwork)
+                    .Select(ua => ua.Address)
+                    .FirstOrDefault(ip => !IPAddress.IsLoopback(ip)
+                                       && !IsApipa(ip));
+
+                if (ipv4 != null)
+                    return ipv4.ToString();
+            }
+
+            // Strategy 2: Fallback — use UDP connect trick to let the OS pick the
+            // outbound interface (works even if no gateway is reachable)
+            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            socket.Connect("8.8.8.8", 80);
+            if (socket.LocalEndPoint is IPEndPoint ep && !IPAddress.IsLoopback(ep.Address) && !IsApipa(ep.Address))
+                return ep.Address.ToString();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("Failed to detect local IP address: {Error}", ex.Message);
+        }
+
+        return null;
+    }
+
+    private static bool IsApipa(IPAddress ip)
+    {
+        var bytes = ip.GetAddressBytes();
+        return bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254;
     }
 }

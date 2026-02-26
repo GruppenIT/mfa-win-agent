@@ -194,6 +194,18 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Read version from version.h
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content "versioning/version.h" -Raw
+          $major = [regex]::Match($content, '#define VERSION_MAJOR\s+(\d+)').Groups[1].Value
+          $minor = [regex]::Match($content, '#define VERSION_MINOR\s+(\d+)').Groups[1].Value
+          $build = [regex]::Match($content, '#define VERSION_BUILD\s+(\d+)').Groups[1].Value
+          $ver = "$major.$minor.$build"
+          Write-Host "Version from version.h: $ver"
+          "SEMVER=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Build Agent Service
         shell: pwsh
         run: |
@@ -203,11 +215,12 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ steps.version.outputs.SEMVER }} `
             -o AgentService/publish
 
           $exe = Get-Item "AgentService\publish\GruppenMFA.AgentService.exe" -ErrorAction SilentlyContinue
           if ($exe) {
-            Write-Host "Agent Service built: $($exe.FullName) ($([math]::Round($exe.Length/1MB, 2)) MB)"
+            Write-Host "Agent Service ${{ steps.version.outputs.SEMVER }} built: $($exe.FullName) ($([math]::Round($exe.Length/1MB, 2)) MB)"
           } else {
             Write-Host "::error::Agent Service exe not found"
             exit 1
