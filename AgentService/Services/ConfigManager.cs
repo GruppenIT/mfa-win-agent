@@ -301,6 +301,10 @@ public sealed class ConfigManager
         // Debug
         key.SetValue("debug_log", config.DebugLogging ? 1 : 0, RegistryValueKind.DWord);
 
+        // Authentication mode: 0=auto, 1=always CredPack (for Azure AD/M365 support)
+        if (config.CredPackMode.HasValue)
+            key.SetValue("credpack_mode", config.CredPackMode.Value, RegistryValueKind.DWord);
+
         // Offline MFA settings (only write when server explicitly provides them)
         if (config.OfflineMfaEnabled.HasValue)
             key.SetValue("offline_mfa_enabled", config.OfflineMfaEnabled.Value ? 1 : 0, RegistryValueKind.DWord);

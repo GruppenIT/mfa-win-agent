@@ -89,6 +89,10 @@ public class AgentConfig
     [JsonPropertyName("forceOnNewSession")]
     public bool ForceOnNewSession { get; set; } = true;
 
+    // Authentication serialization: 0=auto, 1=always CredPack (for Azure AD/M365)
+    [JsonPropertyName("credpack_mode")]
+    public int? CredPackMode { get; set; }
+
     // Debug
     [JsonPropertyName("debugLogging")]
     public bool DebugLogging { get; set; } = false;

@@ -207,24 +207,38 @@ HRESULT Utilities::CredPackAuthentication(
 	PWSTR pwzProtectedPassword;
 	HRESULT hr = ProtectIfNecessaryAndCopyPassword(password.c_str(), cpus, &pwzProtectedPassword);
 
-	WCHAR wsz[MAX_SIZE_DOMAIN];
-	DWORD cch = ARRAYSIZE(wsz);
-	BOOL  bGetCompName = false;
+	// Check if the username is already a UPN (user@domain.com).
+	// If so, pass it directly to CredPackAuthenticationBufferW without
+	// prepending a domain — this allows Windows to route to the correct
+	// auth provider (CloudAP for Azure AD, Negotiate for on-prem).
+	bool isUPN = CheckForUPN(username);
 
-	if (domain.empty())
+	if (domain.empty() && !isUPN)
 	{
-		PIDebug("Domain is empty, getting ComputerName");
-		bGetCompName = GetComputerNameW(wsz, &cch);
-	}
-	if (bGetCompName)
-	{
-        domain = std::wstring(wsz);
+		WCHAR wsz[MAX_SIZE_DOMAIN];
+		DWORD cch = ARRAYSIZE(wsz);
+		PIDebug("Domain is empty and not UPN, getting ComputerName");
+		if (GetComputerNameW(wsz, &cch))
+		{
+			domain = std::wstring(wsz);
+		}
 	}
 
 	if (SUCCEEDED(hr))
 	{
 		PWSTR domainUsername = NULL;
-		hr = DomainUsernameStringAlloc(domain.c_str(), username.c_str(), &domainUsername);
+
+		if (isUPN)
+		{
+			// For UPN format, use the username as-is (user@domain.com)
+			// CredPackAuthenticationBufferW handles UPN natively
+			hr = SHStrDupW(username.c_str(), &domainUsername);
+			PIDebug(L"Using UPN directly: " + username);
+		}
+		else
+		{
+			hr = DomainUsernameStringAlloc(domain.c_str(), username.c_str(), &domainUsername);
+		}
 
 		if (SUCCEEDED(hr))
 		{

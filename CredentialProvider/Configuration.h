@@ -159,6 +159,11 @@ public:
 
 	bool otpFailReturnToFirstStep = false;
 
+	// Authentication serialization mode:
+	// 0 = auto-detect (use CredPack for cloud/UPN domains, Kerberos for on-prem)
+	// 1 = always use CredPack (recommended for environments with Azure AD / M365 accounts)
+	int credPackMode = 0;
+
 	std::wstring otpText = L"";
 
 	// Autologon like https://learn.microsoft.com/en-us/troubleshoot/windows-server/user-profiles-and-logon/turn-on-automatic-logon

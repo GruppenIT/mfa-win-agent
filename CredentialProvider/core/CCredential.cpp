@@ -1476,10 +1476,47 @@ HRESULT CCredential::GetSerialization(
 			_mfaClient.StopPoll();
 
 			// Pack credentials for logon
-			if (_config->provider.cpu == CPUS_CREDUI)
+			// Determine whether to use CredPack (generic, supports Azure AD/M365)
+			// or KerberosLogon (traditional on-prem AD / local accounts)
+			bool useCredPack = (_config->provider.cpu == CPUS_CREDUI);
+
+			if (!useCredPack && _config->credPackMode == 1)
 			{
+				// credpack_mode=1: always use CredPack
+				PIDebug("Using CredPack: forced by credpack_mode=1");
+				useCredPack = true;
+			}
+			else if (!useCredPack && _config->credPackMode == 0)
+			{
+				// credpack_mode=0 (auto): detect cloud domains
+				// Cloud domains contain dots (e.g. contoso.onmicrosoft.com, empresa.com.br)
+				// On-prem NetBIOS domains are single-label (e.g. EMPRESA, CONTOSO)
+				const auto& dom = _config->credential.domain;
+				if (!dom.empty() && dom.find(L'.') != std::wstring::npos)
+				{
+					PIDebug(L"Using CredPack: cloud/FQDN domain detected: " + dom);
+					useCredPack = true;
+				}
+			}
+
+			if (useCredPack)
+			{
+				// For cloud accounts, pass the full UPN (user@domain.com) as username
+				// so Windows can route to the correct auth provider (CloudAP/NGC)
+				std::wstring credUsername = _config->credential.username;
+				std::wstring credDomain = _config->credential.domain;
+
+				if (!_config->credential.upn.empty())
+				{
+					// Use the full UPN as-is and leave domain empty so
+					// CredPackAuthenticationBufferW resolves the provider
+					PIDebug(L"CredPack with UPN: " + _config->credential.upn);
+					credUsername = _config->credential.upn;
+					credDomain = L"";
+				}
+
 				hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
-					_config->credential.username, _config->credential.password, _config->credential.domain);
+					credUsername, _config->credential.password, credDomain);
 			}
 			else
 			{

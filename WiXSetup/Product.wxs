@@ -198,6 +198,8 @@
 						<!-- MISC — sensible defaults -->
 						<RegistryValue Name="header_accept_language" Type="string" Value="system" />
 						<RegistryValue Name="localesPath" Type="string" Value="[$(var.PlatformProgramDataFolder)]$(var.Publisher)\$(var.ProductFolderName)\locales" />
+						<!-- Auth mode: 0=auto-detect, 1=always CredPack (for Azure AD/M365 support) -->
+						<RegistryValue Name="credpack_mode" Type="integer" Value="0" />
 
 						<!-- CONFIG TRACKING -->
 						<RegistryValue Name="config_hash" Type="string" Value="" />
