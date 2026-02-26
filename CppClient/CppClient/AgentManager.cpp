@@ -358,14 +358,39 @@ bool AgentManager::FetchAndApplyConfig(std::string& outConfigHash)
 		if (configData.contains("default_realm") && configData["default_realm"].is_string())
 			rr.SetWString(L"default_realm", Convert::ToWString(configData["default_realm"].get<string>()));
 
-		if (configData.contains("otp_text") && configData["otp_text"].is_string())
-			rr.SetWString(L"otp_text", Convert::ToWString(configData["otp_text"].get<string>()));
+		// TOTP prompt UI — new API field names
+		if (configData.contains("totpPromptTitle") && configData["totpPromptTitle"].is_string())
+			rr.SetWString(L"login_text", Convert::ToWString(configData["totpPromptTitle"].get<string>()));
 
-		if (configData.contains("excluded_account") && configData["excluded_account"].is_string())
-			rr.SetWString(L"excluded_account", Convert::ToWString(configData["excluded_account"].get<string>()));
+		if (configData.contains("totpPromptMessage") && configData["totpPromptMessage"].is_string())
+		{
+			auto msg = Convert::ToWString(configData["totpPromptMessage"].get<string>());
+			rr.SetWString(L"otp_text", msg);
+			rr.SetWString(L"otp_hint_text", msg);
+		}
 
-		if (configData.contains("excluded_group") && configData["excluded_group"].is_string())
-			rr.SetWString(L"excluded_group", Convert::ToWString(configData["excluded_group"].get<string>()));
+		// Exceptions — API sends arrays, CP reads semicolon-separated strings
+		if (configData.contains("exceptUsers") && configData["exceptUsers"].is_array())
+		{
+			string joined;
+			for (const auto& u : configData["exceptUsers"])
+			{
+				if (!joined.empty()) joined += ";";
+				if (u.is_string()) joined += u.get<string>();
+			}
+			rr.SetWString(L"excluded_account", Convert::ToWString(joined));
+		}
+
+		if (configData.contains("exceptGroups") && configData["exceptGroups"].is_array())
+		{
+			string joined;
+			for (const auto& g : configData["exceptGroups"])
+			{
+				if (!joined.empty()) joined += ";";
+				if (g.is_string()) joined += g.get<string>();
+			}
+			rr.SetWString(L"excluded_group", Convert::ToWString(joined));
+		}
 
 		// REG_DWORD fields (numbers)
 		if (configData.contains("custom_port") && configData["custom_port"].is_number_integer())
@@ -381,8 +406,24 @@ bool AgentManager::FetchAndApplyConfig(std::string& outConfigHash)
 		if (configData.contains("hide_domainname") && configData["hide_domainname"].is_boolean())
 			rr.SetDword(L"hide_domainname", configData["hide_domainname"].get<bool>() ? 1 : 0);
 
-		if (configData.contains("two_step_hide_otp") && configData["two_step_hide_otp"].is_boolean())
-			rr.SetDword(L"two_step_hide_otp", configData["two_step_hide_otp"].get<bool>() ? 1 : 0);
+		// Login UX — new fields from central policy
+		if (configData.contains("enable_filter") && configData["enable_filter"].is_boolean())
+			rr.SetDword(L"enable_filter", configData["enable_filter"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("two_step_send_password") && configData["two_step_send_password"].is_boolean())
+			rr.SetDword(L"two_step_send_password", configData["two_step_send_password"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("send_upn") && configData["send_upn"].is_boolean())
+			rr.SetDword(L"send_upn", configData["send_upn"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("prefill_username") && configData["prefill_username"].is_boolean())
+			rr.SetDword(L"prefill_username", configData["prefill_username"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("show_domain_hint") && configData["show_domain_hint"].is_boolean())
+			rr.SetDword(L"show_domain_hint", configData["show_domain_hint"].get<bool>() ? 1 : 0);
+
+		if (configData.contains("credpack_mode") && configData["credpack_mode"].is_number_integer())
+			rr.SetDword(L"credpack_mode", (DWORD)configData["credpack_mode"].get<int>());
 
 		// Store config hash in registry
 		if (!outConfigHash.empty())
