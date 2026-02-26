@@ -2032,6 +2032,18 @@ HRESULT CCredential::EvaluateResponse(PIResponse& response)
 	// Leave the UPN empty if it should not be used
 	wstring upn = _config->piconfig.sendUPN ? _config->credential.upn : L"";
 
+	// Validate UPN: if the domain part has no dot, it's a fake UPN like "user@WORKGROUP"
+	// injected by Windows rather than a real cloud UPN. Clear it so the fallback kicks in.
+	if (!upn.empty())
+	{
+		auto atPos = upn.find(L'@');
+		if (atPos != std::wstring::npos && upn.find(L'.', atPos) == std::wstring::npos)
+		{
+			PIDebug(L"Discarding non-FQDN UPN: " + upn);
+			upn.clear();
+		}
+	}
+
 	// Always show the OTP field, if push was triggered, start polling in background
 	if (response.IsPushAvailable())
 	{
@@ -2163,6 +2175,18 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 	wstring domain = _config->credential.domain;
 	// Leave the UPN empty if it should not be used
 	wstring upn = _config->piconfig.sendUPN ? _config->credential.upn : L"";
+
+	// Validate UPN: if the domain part has no dot, it's a fake UPN like "user@WORKGROUP"
+	// injected by Windows rather than a real cloud UPN. Clear it so the fallback kicks in.
+	if (!upn.empty())
+	{
+		auto atPos = upn.find(L'@');
+		if (atPos != std::wstring::npos && upn.find(L'.', atPos) == std::wstring::npos)
+		{
+			PIDebug(L"Discarding non-FQDN UPN: " + upn);
+			upn.clear();
+		}
+	}
 
 	// Default message
 	pqcws->SetStatusMessage(_util.GetText(TEXT_CONNECTING).c_str());
