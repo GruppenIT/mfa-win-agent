@@ -24,23 +24,11 @@ public class AgentConfig
     [JsonPropertyName("default_realm")]
     public string? DefaultRealm { get; set; }
 
-    [JsonPropertyName("otp_text")]
-    public string? OtpText { get; set; }
-
     [JsonPropertyName("hide_fullname")]
     public bool? HideFullname { get; set; }
 
     [JsonPropertyName("hide_domainname")]
     public bool? HideDomainname { get; set; }
-
-    [JsonPropertyName("two_step_hide_otp")]
-    public bool? TwoStepHideOtp { get; set; }
-
-    [JsonPropertyName("excluded_account")]
-    public string? ExcludedAccount { get; set; }
-
-    [JsonPropertyName("excluded_group")]
-    public string? ExcludedGroup { get; set; }
 
     // Offline behavior
     [JsonPropertyName("offlineGracePeriod")]
@@ -62,7 +50,7 @@ public class AgentConfig
     [JsonPropertyName("totpPromptLogoBase64")]
     public string? TotpPromptLogoBase64 { get; set; }
 
-    // Exceptions (legacy array format)
+    // Exceptions — arrays of sAMAccountName / AD group names
     [JsonPropertyName("exceptUsers")]
     public string[] ExceptUsers { get; set; } = Array.Empty<string>();
 
@@ -88,6 +76,26 @@ public class AgentConfig
 
     [JsonPropertyName("forceOnNewSession")]
     public bool ForceOnNewSession { get; set; } = true;
+
+    // Login UX — Credential Provider tile and flow behavior
+    [JsonPropertyName("enable_filter")]
+    public bool? EnableFilter { get; set; }
+
+    [JsonPropertyName("two_step_send_password")]
+    public bool? TwoStepSendPassword { get; set; }
+
+    [JsonPropertyName("send_upn")]
+    public bool? SendUpn { get; set; }
+
+    [JsonPropertyName("prefill_username")]
+    public bool? PrefillUsername { get; set; }
+
+    [JsonPropertyName("show_domain_hint")]
+    public bool? ShowDomainHint { get; set; }
+
+    // Authentication serialization: 0=auto, 1=always CredPack (for Azure AD/M365)
+    [JsonPropertyName("credpack_mode")]
+    public int? CredPackMode { get; set; }
 
     // Debug
     [JsonPropertyName("debugLogging")]

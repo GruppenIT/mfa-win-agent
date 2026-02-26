@@ -258,18 +258,10 @@ public sealed class ConfigManager
             key.SetValue("ssl_ignore_invalid_cn", config.SslIgnoreInvalidCn.Value ? 1 : 0, RegistryValueKind.DWord);
         if (config.DefaultRealm != null)
             key.SetValue("default_realm", config.DefaultRealm, RegistryValueKind.String);
-        if (config.OtpText != null)
-            key.SetValue("otp_text", config.OtpText, RegistryValueKind.String);
         if (config.HideFullname.HasValue)
             key.SetValue("hide_fullname", config.HideFullname.Value ? 1 : 0, RegistryValueKind.DWord);
         if (config.HideDomainname.HasValue)
             key.SetValue("hide_domainname", config.HideDomainname.Value ? 1 : 0, RegistryValueKind.DWord);
-        if (config.TwoStepHideOtp.HasValue)
-            key.SetValue("two_step_hide_otp", config.TwoStepHideOtp.Value ? 1 : 0, RegistryValueKind.DWord);
-        if (config.ExcludedAccount != null)
-            key.SetValue("excluded_account", config.ExcludedAccount, RegistryValueKind.String);
-        if (config.ExcludedGroup != null)
-            key.SetValue("excluded_group", config.ExcludedGroup, RegistryValueKind.String);
 
         // Offline settings
         key.SetValue("offline_grace_period", config.OfflineGracePeriod, RegistryValueKind.DWord);
@@ -277,16 +269,22 @@ public sealed class ConfigManager
         key.SetValue("offline_cache_enabled", config.OfflineCacheEnabled ? 1 : 0, RegistryValueKind.DWord);
 
         // TOTP prompt UI
+        // login_text = tile title, otp_text = OTP field label (C++ reads both)
         key.SetValue("login_text", config.TotpPromptTitle, RegistryValueKind.String);
+        key.SetValue("otp_text", config.TotpPromptMessage, RegistryValueKind.String);
         key.SetValue("otp_hint_text", config.TotpPromptMessage, RegistryValueKind.String);
         if (File.Exists(LogoFilePath))
             key.SetValue("v1_bitmap_path", LogoFilePath, RegistryValueKind.String);
 
-        // Exceptions (legacy array format)
+        // Exceptions — API sends arrays, CP reads semicolon-separated strings
         if (config.ExceptUsers.Length > 0)
             key.SetValue("excluded_account", string.Join(";", config.ExceptUsers), RegistryValueKind.String);
+        else
+            key.SetValue("excluded_account", "", RegistryValueKind.String);
         if (config.ExceptGroups.Length > 0)
             key.SetValue("excluded_group", string.Join(";", config.ExceptGroups), RegistryValueKind.String);
+        else
+            key.SetValue("excluded_group", "", RegistryValueKind.String);
 
         // Protection
         key.SetValue("prevent_uninstall", config.PreventUninstall ? 1 : 0, RegistryValueKind.DWord);
@@ -297,6 +295,22 @@ public sealed class ConfigManager
         key.SetValue("force_on_console", config.ForceOnConsole ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("force_on_unlock", config.ForceOnUnlock ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("force_on_new_session", config.ForceOnNewSession ? 1 : 0, RegistryValueKind.DWord);
+
+        // Login UX — Credential Provider tile and flow behavior
+        if (config.EnableFilter.HasValue)
+            key.SetValue("enable_filter", config.EnableFilter.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.TwoStepSendPassword.HasValue)
+            key.SetValue("two_step_send_password", config.TwoStepSendPassword.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.SendUpn.HasValue)
+            key.SetValue("send_upn", config.SendUpn.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.PrefillUsername.HasValue)
+            key.SetValue("prefill_username", config.PrefillUsername.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.ShowDomainHint.HasValue)
+            key.SetValue("show_domain_hint", config.ShowDomainHint.Value ? 1 : 0, RegistryValueKind.DWord);
+
+        // Authentication mode: 0=auto, 1=always CredPack (for Azure AD/M365 support)
+        if (config.CredPackMode.HasValue)
+            key.SetValue("credpack_mode", config.CredPackMode.Value, RegistryValueKind.DWord);
 
         // Debug
         key.SetValue("debug_log", config.DebugLogging ? 1 : 0, RegistryValueKind.DWord);

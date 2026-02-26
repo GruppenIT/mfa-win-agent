@@ -124,6 +124,9 @@ void Configuration::Load()
 
 	otpFailReturnToFirstStep = rr.GetBool(L"otp_fail_return_to_first_step");
 
+	// Authentication serialization: 0=auto, 1=always CredPack
+	credPackMode = rr.GetInt(L"credpack_mode");
+
 	// FIDO / WebAuthn
 	webAuthnPreferred = rr.GetBool(L"webauthn_preferred");
 	webAuthnOfflineNoPIN = rr.GetBool(L"webauthn_offline_no_pin");
@@ -291,6 +294,7 @@ void Configuration::LogConfig()
 	PrintIfIntIsNotNull("WebAuthn offline no PIN", webAuthnOfflineNoPIN);
 	PrintIfIntIsNotNull("Disable passkey", disablePasskey);
 	PrintIfIntIsNotNull("OTP fail return to first step", otpFailReturnToFirstStep);
+	PrintIfIntIsNotNull("CredPack mode", credPackMode);
 	PrintIfIntIsNotNull("Username+Password Mode", usernamePassword);
 
 	PrintIfIntIsNotNull("Send UPN", piconfig.sendUPN);
