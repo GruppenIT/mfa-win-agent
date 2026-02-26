@@ -151,18 +151,32 @@ HRESULT MFAClient::ValidateCheck(
 		{ "pass", strOTP }
 	};
 
-	// Username+Domain/Realm or just UPN
-	if (_config.sendUPN && !upn.empty())
+	// Determine the effective UPN for this request.
+	// If the UPN lacks a real FQDN domain (e.g. "user@WORKGROUP"), treat it as empty
+	// so the fallback reconstruction from default_realm kicks in.
+	wstring effectiveUpn = upn;
+	if (!effectiveUpn.empty())
 	{
-		string strUPN = Convert::ToString(upn);
+		auto atPos = effectiveUpn.find(L'@');
+		if (atPos != std::wstring::npos && effectiveUpn.find(L'.', atPos) == std::wstring::npos)
+		{
+			PIDebug("Discarding non-FQDN UPN: " + Convert::ToString(effectiveUpn));
+			effectiveUpn.clear();
+		}
+	}
+
+	// Username+Domain/Realm or just UPN
+	if (_config.sendUPN && !effectiveUpn.empty())
+	{
+		string strUPN = Convert::ToString(effectiveUpn);
 		PIDebug("Sending UPN " + strUPN);
 		parameters.try_emplace("user", strUPN);
 	}
-	else if (_config.sendUPN && upn.empty() && !_config.defaultRealm.empty())
+	else if (_config.sendUPN && !_config.defaultRealm.empty())
 	{
 		// Fallback: reconstruct UPN from username + default_realm
 		// This handles cases where the UPN was not captured (e.g. unlock screen,
-		// WORKGROUP machines where Windows doesn't expose the cloud UPN)
+		// WORKGROUP machines where Windows overwrites UPN with "user@WORKGROUP")
 		string strUsername = Convert::ToString(username);
 		string strRealm = Convert::ToString(_config.defaultRealm);
 		string reconstructedUpn = strUsername + "@" + strRealm;

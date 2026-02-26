@@ -1489,17 +1489,14 @@ HRESULT CCredential::GetSerialization(
 			else if (!useCredPack && _config->credPackMode == 0)
 			{
 				// credpack_mode=0 (auto): detect cloud accounts
-				// Check 1: domain contains dots (e.g. contoso.onmicrosoft.com, empresa.com.br)
-				// On-prem NetBIOS domains are single-label (e.g. EMPRESA, CONTOSO)
+				// Check 1: credential.domain contains dots (e.g. empresa.com.br)
 				const auto& dom = _config->credential.domain;
 				if (!dom.empty() && dom.find(L'.') != std::wstring::npos)
 				{
 					PIDebug(L"Using CredPack: cloud/FQDN domain detected: " + dom);
 					useCredPack = true;
 				}
-				// Check 2: UPN has a real FQDN domain (preserved from step 1)
-				// This catches Entra ID on WORKGROUP machines where domain got
-				// overwritten to "WORKGROUP" but we still have the original UPN
+				// Check 2: credential.upn has a real FQDN (user@empresa.com.br)
 				if (!useCredPack && !_config->credential.upn.empty())
 				{
 					auto atPos = _config->credential.upn.find(L'@');
@@ -1510,21 +1507,54 @@ HRESULT CCredential::GetSerialization(
 						useCredPack = true;
 					}
 				}
+				// Check 3: config-based detection — if send_upn is enabled and
+				// default_realm is an FQDN, this machine is configured for cloud
+				// accounts. Use CredPack so Entra ID works even when Windows
+				// overwrites the domain to "WORKGROUP" on the TOTP step.
+				if (!useCredPack && _config->piconfig.sendUPN
+					&& !_config->piconfig.defaultRealm.empty()
+					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
+				{
+					PIDebug(L"Using CredPack: cloud config detected (send_upn + default_realm="
+						+ _config->piconfig.defaultRealm + L")");
+					useCredPack = true;
+				}
 			}
 
 			if (useCredPack)
 			{
-				// For cloud accounts, pass the full UPN (user@domain.com) as username
-				// so Windows can route to the correct auth provider (CloudAP/NGC)
+				// Determine the username to pass to CredPackAuthenticationBufferW.
+				// For cloud accounts, we need the full UPN (user@domain.com)
+				// so Windows routes to the correct auth provider (CloudAP/NGC).
 				std::wstring credUsername = _config->credential.username;
 				std::wstring credDomain = _config->credential.domain;
 
-				if (!_config->credential.upn.empty())
+				// Use UPN if available and valid (has FQDN domain)
+				const auto& upn = _config->credential.upn;
+				bool upnHasFqdn = false;
+				if (!upn.empty())
 				{
-					// Use the full UPN as-is and leave domain empty so
-					// CredPackAuthenticationBufferW resolves the provider
-					PIDebug(L"CredPack with UPN: " + _config->credential.upn);
-					credUsername = _config->credential.upn;
+					auto atPos = upn.find(L'@');
+					upnHasFqdn = (atPos != std::wstring::npos
+						&& upn.find(L'.', atPos) != std::wstring::npos);
+				}
+
+				if (upnHasFqdn)
+				{
+					PIDebug(L"CredPack with UPN: " + upn);
+					credUsername = upn;
+					credDomain = L"";
+				}
+				else if (_config->piconfig.sendUPN
+					&& !_config->piconfig.defaultRealm.empty()
+					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
+				{
+					// UPN was lost (e.g. Windows showed "user@WORKGROUP" on step 2).
+					// Reconstruct from username + default_realm.
+					std::wstring reconstructed = _config->credential.username
+						+ L"@" + _config->piconfig.defaultRealm;
+					PIDebug(L"CredPack with reconstructed UPN: " + reconstructed);
+					credUsername = reconstructed;
 					credDomain = L"";
 				}
 
@@ -2045,18 +2075,6 @@ HRESULT CCredential::EvaluateResponse(PIResponse& response)
 	// Leave the UPN empty if it should not be used
 	wstring upn = _config->piconfig.sendUPN ? _config->credential.upn : L"";
 
-	// Validate UPN: if the domain part has no dot, it's a fake UPN like "user@WORKGROUP"
-	// injected by Windows rather than a real cloud UPN. Clear it so the fallback kicks in.
-	if (!upn.empty())
-	{
-		auto atPos = upn.find(L'@');
-		if (atPos != std::wstring::npos && upn.find(L'.', atPos) == std::wstring::npos)
-		{
-			PIDebug(L"Discarding non-FQDN UPN: " + upn);
-			upn.clear();
-		}
-	}
-
 	// Always show the OTP field, if push was triggered, start polling in background
 	if (response.IsPushAvailable())
 	{
@@ -2188,18 +2206,6 @@ HRESULT CCredential::Connect(__in IQueryContinueWithStatus* pqcws)
 	wstring domain = _config->credential.domain;
 	// Leave the UPN empty if it should not be used
 	wstring upn = _config->piconfig.sendUPN ? _config->credential.upn : L"";
-
-	// Validate UPN: if the domain part has no dot, it's a fake UPN like "user@WORKGROUP"
-	// injected by Windows rather than a real cloud UPN. Clear it so the fallback kicks in.
-	if (!upn.empty())
-	{
-		auto atPos = upn.find(L'@');
-		if (atPos != std::wstring::npos && upn.find(L'.', atPos) == std::wstring::npos)
-		{
-			PIDebug(L"Discarding non-FQDN UPN: " + upn);
-			upn.clear();
-		}
-	}
 
 	// Default message
 	pqcws->SetStatusMessage(_util.GetText(TEXT_CONNECTING).c_str());
