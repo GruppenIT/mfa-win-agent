@@ -566,29 +566,13 @@ HRESULT Utilities::CopyUsernameField()
 
 	if (Utilities::CheckForUPN(input))
 	{
-		// Only update UPN if we don't already have a valid one (with a real domain).
-		// On the TOTP step, Windows may resolve the display name to "user@WORKGROUP"
-		// which would overwrite the real UPN captured in step 1 (e.g. "user@empresa.com.br").
-		// A real UPN domain always contains a dot; WORKGROUP/NetBIOS names never do.
-		const auto& existingUpn = _config->credential.upn;
-		bool existingUpnHasDot = false;
-		if (!existingUpn.empty())
-		{
-			auto atPos = existingUpn.find(L'@');
-			if (atPos != std::wstring::npos)
-			{
-				existingUpnHasDot = existingUpn.find(L'.', atPos) != std::wstring::npos;
-			}
-		}
-
-		if (existingUpnHasDot && domain.find(L'.') == std::wstring::npos)
-		{
-			PIDebug(L"Keeping existing UPN '" + existingUpn + L"' (new input '" + input + L"' has non-FQDN domain)");
-		}
-		else
-		{
-			_config->credential.upn = input;
-		}
+		_config->credential.upn = input;
+	}
+	else
+	{
+		// Input is not UPN format — clear any stale UPN from a previous attempt
+		// (e.g. user switched from "rodrigo@empresa.com.br" to "testuser")
+		_config->credential.upn.clear();
 	}
 
 	if (!username.empty())
@@ -604,22 +588,8 @@ HRESULT Utilities::CopyUsernameField()
 
 	if (!domain.empty())
 	{
-		// Protect the domain the same way we protect UPN: if we already have a
-		// real FQDN domain (with dot) from step 1, don't overwrite it with a
-		// non-FQDN name like "WORKGROUP" that Windows injects on step 2.
-		const auto& existingDomain = _config->credential.domain;
-		bool existingDomainHasDot = existingDomain.find(L'.') != std::wstring::npos;
-		bool newDomainHasDot = domain.find(L'.') != std::wstring::npos;
-
-		if (existingDomainHasDot && !newDomainHasDot)
-		{
-			PIDebug(L"Keeping existing FQDN domain '" + existingDomain + L"' (new '" + domain + L"' is non-FQDN)");
-		}
-		else
-		{
-			PIDebug(L"Changing domain from '" + existingDomain + L"' to '" + domain + L"'");
-			_config->credential.domain = domain;
-		}
+		PIDebug(L"Changing domain from '" + _config->credential.domain + L"' to '" + domain + L"'");
+		_config->credential.domain = domain;
 	}
 	else
 	{
