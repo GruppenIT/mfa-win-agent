@@ -80,6 +80,11 @@ HRESULT RetrieveNegotiateAuthPackage(
 	__out ULONG* pulAuthPackage
 );
 
+//get the CloudAP authentication package for Azure AD/Entra ID accounts
+HRESULT RetrieveCloudAPAuthPackage(
+	__out ULONG* pulAuthPackage
+);
+
 //encrypt a password (if necessary) and copy it; if not, just copy it
 HRESULT ProtectIfNecessaryAndCopyPassword(
 	__in PCWSTR pwzPassword,

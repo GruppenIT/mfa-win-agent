@@ -291,7 +291,32 @@ HRESULT Utilities::CredPackAuthentication(
 			if (SUCCEEDED(hr))
 			{
 				ULONG ulAuthPackage;
-				hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
+
+				if (isUPN)
+				{
+					// For Azure AD / Entra ID accounts (UPN format), try the CloudAP
+					// auth package first. On pure Azure AD Joined machines, the Negotiate
+					// package only handles Kerberos + NTLM and cannot reach CloudAP.
+					// The native Windows credential provider uses CloudAP directly for
+					// Azure AD accounts.
+					hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
+					if (SUCCEEDED(hr))
+					{
+						PIDebug("Using CloudAP auth package for Azure AD account");
+					}
+					else
+					{
+						// CloudAP not available (e.g. machine not Azure AD Joined).
+						// Fall back to Negotiate which works for hybrid/on-prem.
+						PIDebug("CloudAP package not available, falling back to Negotiate");
+						hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
+					}
+				}
+				else
+				{
+					// Local/domain accounts: use Negotiate (Kerberos + NTLM)
+					hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
+				}
 
 				if (SUCCEEDED(hr))
 				{
@@ -300,7 +325,7 @@ HRESULT Utilities::CredPackAuthentication(
 
 					// At this point the credential has created the serialized credential used for logon
 					// By setting self to CPGSR_RETURN_CREDENTIAL_FINISHED we are letting logonUI know
-					// that we have all the information we need and it should attempt to submit the 
+					// that we have all the information we need and it should attempt to submit the
 					// serialized credential.
 					*pcpgsr = CPGSR_RETURN_CREDENTIAL_FINISHED;
 				}
