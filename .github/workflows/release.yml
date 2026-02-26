@@ -1,0 +1,229 @@
+name: Release MSI
+
+# Trigger: create a GitHub Release with a tag like v3.8.0
+# The tag version becomes the version in ALL binaries and the MSI.
+on:
+  release:
+    types: [published]
+
+env:
+  SOLUTION_FILE: GruppenMFA-CredentialProvider.sln
+  PLATFORM: x64
+  CONFIGURATION: Release
+  LIBFIDO2_VERSION: "1.15.0"
+  NLOHMANN_JSON_VERSION: "3.11.3"
+
+permissions:
+  contents: write   # needed to upload release assets
+
+jobs:
+  build-and-upload:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Extract version from tag ────────────────────────────────────
+      - name: Parse version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          # Strip leading 'v' if present: v3.8.0 -> 3.8.0
+          $ver = $tag -replace '^v', ''
+
+          # Validate semver format (X.Y.Z or X.Y.Z.W)
+          if ($ver -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+            Write-Host "::error::Tag '$tag' is not a valid version. Expected format: v1.2.3 or v1.2.3.4"
+            exit 1
+          }
+
+          $parts = $ver.Split('.')
+          $major = $parts[0]
+          $minor = $parts[1]
+          $build = $parts[2]
+          $revision = if ($parts.Length -ge 4) { $parts[3] } else { "0" }
+          $semver = "$major.$minor.$build"
+          $full = "$major.$minor.$build.$revision"
+
+          Write-Host "Version from tag: $full (semver: $semver)"
+          "SEMVER=$semver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "FULL=$full" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "MAJOR=$major" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "MINOR=$minor" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "BUILD=$build" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "REVISION=$revision" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      # ── Patch version files ─────────────────────────────────────────
+      - name: Patch version.h (C++ components)
+        shell: pwsh
+        run: |
+          $file = "versioning/version.h"
+          $content = Get-Content $file -Raw
+
+          $content = $content -replace '#define VERSION_MAJOR\s+\d+', "#define VERSION_MAJOR               ${{ steps.version.outputs.MAJOR }}"
+          $content = $content -replace '#define VERSION_MINOR\s+\d+', "#define VERSION_MINOR               ${{ steps.version.outputs.MINOR }}"
+          $content = $content -replace '#define VERSION_BUILD\s+\d+', "#define VERSION_BUILD               ${{ steps.version.outputs.BUILD }}"
+          $content = $content -replace '#define VERSION_REVISION\s+\d+', "#define VERSION_REVISION            ${{ steps.version.outputs.REVISION }}"
+
+          Set-Content $file -Value $content -NoNewline
+          Write-Host "Patched version.h to ${{ steps.version.outputs.FULL }}"
+          Get-Content $file | Select-String "VERSION_"
+
+      # ── Dependencies ────────────────────────────────────────────────
+      - name: Download nlohmann/json
+        shell: pwsh
+        run: |
+          $dest = "CppClient\nlohmann\x64\include\nlohmann"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $url = "https://github.com/nlohmann/json/releases/download/v${{ env.NLOHMANN_JSON_VERSION }}/json.hpp"
+          Invoke-WebRequest -Uri $url -OutFile "$dest\json.hpp"
+
+      - name: Download libfido2 (Yubico prebuilt)
+        shell: pwsh
+        run: |
+          $version = "${{ env.LIBFIDO2_VERSION }}"
+          $url = "https://developers.yubico.com/libfido2/Releases/libfido2-${version}-win.zip"
+          $targetDir = "libfido2-${version}-nfc-enabled"
+
+          Invoke-WebRequest -Uri $url -OutFile "libfido2-win.zip"
+          Expand-Archive -Path "libfido2-win.zip" -DestinationPath "libfido2-tmp" -Force
+          Remove-Item "libfido2-win.zip"
+
+          New-Item -ItemType Directory -Force -Path "$targetDir\include" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$targetDir\static" | Out-Null
+
+          $extractedRoot = Get-ChildItem "libfido2-tmp" -Directory | Select-Object -First 1
+          if (-not $extractedRoot) { $extractedRoot = Get-Item "libfido2-tmp" }
+
+          Copy-Item "$($extractedRoot.FullName)\include\*" "$targetDir\include\" -Recurse -Force
+
+          $staticPaths = @(
+            "$($extractedRoot.FullName)\Win64\Release\v143\static",
+            "$($extractedRoot.FullName)\Win64\Release\static",
+            "$($extractedRoot.FullName)\Win64\static",
+            "$($extractedRoot.FullName)\Win64"
+          )
+          $found = $false
+          foreach ($p in $staticPaths) {
+            if (Test-Path "$p\fido2.lib") {
+              Copy-Item "$p\*" "$targetDir\static\" -Recurse -Force
+              $found = $true; break
+            }
+          }
+          if (-not $found) {
+            $fidoLib = Get-ChildItem "libfido2-tmp" -Recurse -Filter "fido2.lib" | Select-Object -First 1
+            if ($fidoLib) {
+              Copy-Item "$($fidoLib.DirectoryName)\*" "$targetDir\static\" -Recurse -Force
+            } else {
+              Write-Host "::error::Could not find fido2.lib"; exit 1
+            }
+          }
+          Remove-Item "libfido2-tmp" -Recurse -Force
+
+      - name: Copy VC++ Merge Modules
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -property installationPath
+          $msmPath = Get-ChildItem -Path "$vsPath\VC\Redist\MSVC" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          $msmDir = "$($msmPath.FullName)\MergeModules"
+          New-Item -ItemType Directory -Force -Path "lib\merge" | Out-Null
+          $modules = @(
+            "Microsoft_VC143_CRT_x64.msm",
+            "Microsoft_VC143_CRT_x86.msm",
+            "Microsoft_VC143_DebugCRT_x64.msm",
+            "Microsoft_VC143_DebugCRT_x86.msm"
+          )
+          foreach ($mod in $modules) {
+            $src = Join-Path $msmDir $mod
+            if (Test-Path $src) { Copy-Item $src "lib\merge\" }
+          }
+
+      # ── Build ───────────────────────────────────────────────────────
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          $wixBin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          if (-not (Test-Path "$wixBin\candle.exe")) {
+            choco install wixtoolset -y --no-progress
+          }
+          if (Test-Path $wixBin) {
+            echo "$wixBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+          $msbuildWixDir = "${env:ProgramFiles(x86)}\MSBuild\Microsoft\WiX\v3.x"
+          if (-not (Test-Path "$msbuildWixDir\Wix.targets")) {
+            New-Item -ItemType Directory -Force -Path $msbuildWixDir | Out-Null
+            Copy-Item "$wixBin\wix*.targets" $msbuildWixDir -Force
+            Copy-Item "$wixBin\wix*.xsd" $msbuildWixDir -Force -ErrorAction SilentlyContinue
+            Copy-Item "$wixBin\Wix.targets" $msbuildWixDir -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Agent Service (with version)
+        shell: pwsh
+        run: |
+          dotnet publish AgentService/AgentService.csproj `
+            -c ${{ env.CONFIGURATION }} `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ steps.version.outputs.SEMVER }} `
+            -o AgentService/publish
+
+          $exe = Get-Item "AgentService\publish\GruppenMFA.AgentService.exe"
+          Write-Host "Agent Service ${{ steps.version.outputs.SEMVER }} built: $($exe.FullName) ($([math]::Round($exe.Length/1MB, 2)) MB)"
+
+      - name: Build Solution (C++ DLLs + MSI)
+        shell: pwsh
+        run: |
+          msbuild ${{ env.SOLUTION_FILE }} `
+            /p:Configuration=${{ env.CONFIGURATION }} `
+            /p:Platform=${{ env.PLATFORM }} `
+            /m /verbosity:normal
+
+          $msiPath = "WiXSetup\bin\${{ env.PLATFORM }}\${{ env.CONFIGURATION }}"
+          $msi = Get-ChildItem $msiPath -Filter "*.msi" -Recurse -ErrorAction SilentlyContinue
+          if ($msi) {
+            Write-Host "MSI generated: $($msi.FullName) ($([math]::Round($msi.Length/1MB, 2)) MB)"
+          } else {
+            Write-Host "::error::MSI not found at $msiPath"; exit 1
+          }
+
+      # ── Rename and Upload ───────────────────────────────────────────
+      - name: Rename MSI with version
+        id: msi
+        shell: pwsh
+        run: |
+          $msiPath = "WiXSetup\bin\${{ env.PLATFORM }}\${{ env.CONFIGURATION }}"
+          $msi = Get-ChildItem $msiPath -Filter "*.msi" -Recurse | Select-Object -First 1
+          $newName = "GruppenMFA-CredentialProvider-${{ steps.version.outputs.FULL }}-x64.msi"
+          $newPath = Join-Path $msi.DirectoryName $newName
+          Move-Item $msi.FullName $newPath
+          Write-Host "Renamed to: $newPath"
+          "MSI_PATH=$newPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "MSI_NAME=$newName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload MSI to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.msi.outputs.MSI_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload MSI as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.msi.outputs.MSI_NAME }}
+          path: ${{ steps.msi.outputs.MSI_PATH }}
+          if-no-files-found: error
