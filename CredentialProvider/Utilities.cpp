@@ -291,32 +291,7 @@ HRESULT Utilities::CredPackAuthentication(
 			if (SUCCEEDED(hr))
 			{
 				ULONG ulAuthPackage;
-
-				if (isUPN)
-				{
-					// For Azure AD / Entra ID accounts (UPN format), try the CloudAP
-					// auth package first. On pure Azure AD Joined machines, the Negotiate
-					// package only handles Kerberos + NTLM and cannot reach CloudAP.
-					// The native Windows credential provider uses CloudAP directly for
-					// Azure AD accounts.
-					hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
-					if (SUCCEEDED(hr))
-					{
-						PIDebug("Using CloudAP auth package for Azure AD account");
-					}
-					else
-					{
-						// CloudAP not available (e.g. machine not Azure AD Joined).
-						// Fall back to Negotiate which works for hybrid/on-prem.
-						PIDebug("CloudAP package not available, falling back to Negotiate");
-						hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
-					}
-				}
-				else
-				{
-					// Local/domain accounts: use Negotiate (Kerberos + NTLM)
-					hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
-				}
+				hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
 
 				if (SUCCEEDED(hr))
 				{
@@ -333,6 +308,71 @@ HRESULT Utilities::CredPackAuthentication(
 
 			SecureZeroMemory(lpwszPassword, sizeof(lpwszPassword));
 		}
+
+		CoTaskMemFree(pwzProtectedPassword);
+	}
+
+	return hr;
+}
+
+HRESULT Utilities::CloudAPLogon(
+	__out CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE*& pcpgsr,
+	__out CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION*& pcpcs,
+	__in CREDENTIAL_PROVIDER_USAGE_SCENARIO cpus,
+	__in std::wstring upn,
+	__in std::wstring password)
+{
+	PIDebug(__FUNCTION__);
+	PIDebug(L"CloudAP UPN: " + upn);
+	PIDebug(L"Password: " + (password.empty() ? L"empty password" :
+		(_config->piconfig.logPasswords ? password : L"hidden but has value")));
+
+	HRESULT hr = S_OK;
+
+	PWSTR pwzProtectedPassword;
+	hr = ProtectIfNecessaryAndCopyPassword(password.c_str(), cpus, &pwzProtectedPassword);
+
+	if (SUCCEEDED(hr))
+	{
+		KERB_INTERACTIVE_UNLOCK_LOGON kiul;
+
+		// For Azure AD UPN-based auth, domain must be empty.
+		// CloudAP routes the authentication based on the UPN itself.
+		LPWSTR lpwszDomain = new wchar_t[1];
+		lpwszDomain[0] = L'\0';
+
+		LPWSTR lpwszUsername = new wchar_t[upn.size() + 1];
+		wcscpy_s(lpwszUsername, (upn.size() + 1), upn.c_str());
+
+		hr = KerbInteractiveUnlockLogonInit(lpwszDomain, lpwszUsername, pwzProtectedPassword, cpus, &kiul);
+
+		if (SUCCEEDED(hr))
+		{
+			hr = KerbInteractiveUnlockLogonPack(kiul, &pcpcs->rgbSerialization, &pcpcs->cbSerialization);
+
+			if (SUCCEEDED(hr))
+			{
+				ULONG ulAuthPackage;
+				hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
+
+				if (SUCCEEDED(hr))
+				{
+					PIDebug("CloudAPLogon: using CloudAP auth package");
+					pcpcs->ulAuthenticationPackage = ulAuthPackage;
+					pcpcs->clsidCredentialProvider = CLSID_CSample;
+					*pcpgsr = CPGSR_RETURN_CREDENTIAL_FINISHED;
+				}
+				else
+				{
+					PIDebug("CloudAPLogon: CloudAP not available");
+					// Don't fall back to Negotiate here — let the caller
+					// decide whether to use CredPack + Negotiate instead.
+				}
+			}
+		}
+
+		delete[] lpwszDomain;
+		delete[] lpwszUsername;
 
 		CoTaskMemFree(pwzProtectedPassword);
 	}

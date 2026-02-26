@@ -1523,15 +1523,15 @@ HRESULT CCredential::GetSerialization(
 
 			if (useCredPack)
 			{
-				// Determine the username to pass to CredPackAuthenticationBufferW.
-				// For cloud accounts, we need the full UPN (user@domain.com)
-				// so Windows routes to the correct auth provider (CloudAP/NGC).
+				// Determine the username to pass for authentication.
+				// For cloud accounts, we need the full UPN (user@domain.com).
 				std::wstring credUsername = _config->credential.username;
 				std::wstring credDomain = _config->credential.domain;
 
-				// Use UPN if available and valid (has FQDN domain)
+				// Check if UPN is available and has a real FQDN domain
 				const auto& upn = _config->credential.upn;
 				bool upnHasFqdn = false;
+				bool isCloudAccount = false;
 				if (!upn.empty())
 				{
 					auto atPos = upn.find(L'@');
@@ -1542,9 +1542,10 @@ HRESULT CCredential::GetSerialization(
 				if (upnHasFqdn)
 				{
 					// UPN is valid (e.g. rodrigo@empresa.com.br from step 1)
-					PIDebug(L"CredPack with UPN: " + upn);
 					credUsername = upn;
 					credDomain = L"";
+					isCloudAccount = true;
+					PIDebug(L"Cloud account detected, UPN: " + upn);
 				}
 				else if (!upn.empty() && _config->piconfig.sendUPN
 					&& !_config->piconfig.defaultRealm.empty()
@@ -1557,19 +1558,42 @@ HRESULT CCredential::GetSerialization(
 					// — this is a local account, do NOT reconstruct.
 					std::wstring reconstructed = _config->credential.username
 						+ L"@" + _config->piconfig.defaultRealm;
-					PIDebug(L"CredPack with reconstructed UPN: " + reconstructed);
 					credUsername = reconstructed;
 					credDomain = L"";
+					isCloudAccount = true;
+					PIDebug(L"Cloud account detected, reconstructed UPN: " + reconstructed);
 				}
 				else
 				{
 					// Plain username (local/domain account) — pass as-is.
-					// CredPackAuthentication will create DOMAIN\username format.
-					PIDebug(L"CredPack with local username: " + credUsername + L" domain: " + credDomain);
+					PIDebug(L"Local account: " + credUsername + L" domain: " + credDomain);
 				}
 
-				hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
-					credUsername, _config->credential.password, credDomain);
+				if (isCloudAccount)
+				{
+					// Azure AD / Entra ID account: use CloudAPLogon which creates a
+					// KERB_INTERACTIVE_UNLOCK_LOGON with the CloudAP auth package.
+					// On AAD-joined machines, only CloudAP can authenticate Azure AD
+					// accounts — the Negotiate package (Kerberos+NTLM) cannot.
+					PIDebug(L"Trying CloudAPLogon for: " + credUsername);
+					hr = _util.CloudAPLogon(pcpgsr, pcpcs, _config->provider.cpu,
+						credUsername, _config->credential.password);
+
+					if (FAILED(hr))
+					{
+						// CloudAP not available (non-AAD machine, hybrid, etc.)
+						// Fall back to CredPack + Negotiate (works for on-prem AD).
+						PIDebug("CloudAPLogon failed, falling back to CredPack + Negotiate");
+						hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
+							credUsername, _config->credential.password, credDomain);
+					}
+				}
+				else
+				{
+					// Local/domain account: use CredPack + Negotiate
+					hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
+						credUsername, _config->credential.password, credDomain);
+				}
 			}
 			else
 			{

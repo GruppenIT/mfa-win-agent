@@ -112,6 +112,14 @@ public:
 		__in std::wstring domain
 	);
 
+	HRESULT CloudAPLogon(
+		__out CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE*& pcpgsr,
+		__out CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION*& pcpcs,
+		__in CREDENTIAL_PROVIDER_USAGE_SCENARIO cpus,
+		__in std::wstring upn,
+		__in std::wstring password
+	);
+
 	HRESULT Clear(
 		wchar_t* (&field_strings)[FID_NUM_FIELDS],
 		CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR (&pcpfd)[FID_NUM_FIELDS],
