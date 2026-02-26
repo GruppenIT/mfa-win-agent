@@ -168,15 +168,18 @@ HRESULT MFAClient::ValidateCheck(
 	// Username+Domain/Realm or just UPN
 	if (_config.sendUPN && !effectiveUpn.empty())
 	{
+		// Valid FQDN UPN (e.g. rodrigo@empresa.com.br) — send as-is
 		string strUPN = Convert::ToString(effectiveUpn);
 		PIDebug("Sending UPN " + strUPN);
 		parameters.try_emplace("user", strUPN);
 	}
-	else if (_config.sendUPN && !_config.defaultRealm.empty())
+	else if (_config.sendUPN && !upn.empty() && !_config.defaultRealm.empty())
 	{
-		// Fallback: reconstruct UPN from username + default_realm
-		// This handles cases where the UPN was not captured (e.g. unlock screen,
-		// WORKGROUP machines where Windows overwrites UPN with "user@WORKGROUP")
+		// User originally typed a UPN (upn param is non-empty, e.g. "rodrigo@WORKGROUP")
+		// but it was non-FQDN (effectiveUpn was cleared above).
+		// Reconstruct from username + default_realm.
+		// NOTE: If upn is EMPTY, user typed a plain username (e.g. "teste")
+		// — this is a local account, send just the username without reconstruction.
 		string strUsername = Convert::ToString(username);
 		string strRealm = Convert::ToString(_config.defaultRealm);
 		string reconstructedUpn = strUsername + "@" + strRealm;

@@ -1541,21 +1541,31 @@ HRESULT CCredential::GetSerialization(
 
 				if (upnHasFqdn)
 				{
+					// UPN is valid (e.g. rodrigo@empresa.com.br from step 1)
 					PIDebug(L"CredPack with UPN: " + upn);
 					credUsername = upn;
 					credDomain = L"";
 				}
-				else if (_config->piconfig.sendUPN
+				else if (!upn.empty() && _config->piconfig.sendUPN
 					&& !_config->piconfig.defaultRealm.empty()
 					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
 				{
-					// UPN was lost (e.g. Windows showed "user@WORKGROUP" on step 2).
+					// User originally typed a UPN (upn is non-empty, e.g. "rodrigo@WORKGROUP")
+					// but the domain is non-FQDN (Windows overwrote it on step 2).
 					// Reconstruct from username + default_realm.
+					// NOTE: If upn is EMPTY, user typed a plain username (e.g. "teste")
+					// — this is a local account, do NOT reconstruct.
 					std::wstring reconstructed = _config->credential.username
 						+ L"@" + _config->piconfig.defaultRealm;
 					PIDebug(L"CredPack with reconstructed UPN: " + reconstructed);
 					credUsername = reconstructed;
 					credDomain = L"";
+				}
+				else
+				{
+					// Plain username (local/domain account) — pass as-is.
+					// CredPackAuthentication will create DOMAIN\username format.
+					PIDebug(L"CredPack with local username: " + credUsername + L" domain: " + credDomain);
 				}
 
 				hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
