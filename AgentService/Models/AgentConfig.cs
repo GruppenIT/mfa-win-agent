@@ -89,6 +89,22 @@ public class AgentConfig
     [JsonPropertyName("forceOnNewSession")]
     public bool ForceOnNewSession { get; set; } = true;
 
+    // Login UX — Credential Provider tile and flow behavior
+    [JsonPropertyName("enable_filter")]
+    public bool? EnableFilter { get; set; }
+
+    [JsonPropertyName("two_step_send_password")]
+    public bool? TwoStepSendPassword { get; set; }
+
+    [JsonPropertyName("send_upn")]
+    public bool? SendUpn { get; set; }
+
+    [JsonPropertyName("prefill_username")]
+    public bool? PrefillUsername { get; set; }
+
+    [JsonPropertyName("show_domain_hint")]
+    public bool? ShowDomainHint { get; set; }
+
     // Authentication serialization: 0=auto, 1=always CredPack (for Azure AD/M365)
     [JsonPropertyName("credpack_mode")]
     public int? CredPackMode { get; set; }

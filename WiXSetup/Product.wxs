@@ -198,6 +198,10 @@
 						<!-- MISC — sensible defaults -->
 						<RegistryValue Name="header_accept_language" Type="string" Value="system" />
 						<RegistryValue Name="localesPath" Type="string" Value="[$(var.PlatformProgramDataFolder)]$(var.Publisher)\$(var.ProductFolderName)\locales" />
+
+						<!-- Login UX defaults — can be overridden by server policy on first checkin -->
+						<RegistryValue Name="two_step_send_password" Type="integer" Value="1" />
+						<RegistryValue Name="send_upn" Type="integer" Value="1" />
 						<!-- Auth mode: 0=auto-detect, 1=always CredPack (for Azure AD/M365 support) -->
 						<RegistryValue Name="credpack_mode" Type="integer" Value="0" />
 

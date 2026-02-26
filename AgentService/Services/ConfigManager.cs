@@ -298,12 +298,24 @@ public sealed class ConfigManager
         key.SetValue("force_on_unlock", config.ForceOnUnlock ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("force_on_new_session", config.ForceOnNewSession ? 1 : 0, RegistryValueKind.DWord);
 
-        // Debug
-        key.SetValue("debug_log", config.DebugLogging ? 1 : 0, RegistryValueKind.DWord);
+        // Login UX — Credential Provider tile and flow behavior
+        if (config.EnableFilter.HasValue)
+            key.SetValue("enable_filter", config.EnableFilter.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.TwoStepSendPassword.HasValue)
+            key.SetValue("two_step_send_password", config.TwoStepSendPassword.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.SendUpn.HasValue)
+            key.SetValue("send_upn", config.SendUpn.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.PrefillUsername.HasValue)
+            key.SetValue("prefill_username", config.PrefillUsername.Value ? 1 : 0, RegistryValueKind.DWord);
+        if (config.ShowDomainHint.HasValue)
+            key.SetValue("show_domain_hint", config.ShowDomainHint.Value ? 1 : 0, RegistryValueKind.DWord);
 
         // Authentication mode: 0=auto, 1=always CredPack (for Azure AD/M365 support)
         if (config.CredPackMode.HasValue)
             key.SetValue("credpack_mode", config.CredPackMode.Value, RegistryValueKind.DWord);
+
+        // Debug
+        key.SetValue("debug_log", config.DebugLogging ? 1 : 0, RegistryValueKind.DWord);
 
         // Offline MFA settings (only write when server explicitly provides them)
         if (config.OfflineMfaEnabled.HasValue)
