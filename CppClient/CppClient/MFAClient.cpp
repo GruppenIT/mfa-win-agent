@@ -158,6 +158,17 @@ HRESULT MFAClient::ValidateCheck(
 		PIDebug("Sending UPN " + strUPN);
 		parameters.try_emplace("user", strUPN);
 	}
+	else if (_config.sendUPN && upn.empty() && !_config.defaultRealm.empty())
+	{
+		// Fallback: reconstruct UPN from username + default_realm
+		// This handles cases where the UPN was not captured (e.g. unlock screen,
+		// WORKGROUP machines where Windows doesn't expose the cloud UPN)
+		string strUsername = Convert::ToString(username);
+		string strRealm = Convert::ToString(_config.defaultRealm);
+		string reconstructedUpn = strUsername + "@" + strRealm;
+		PIDebug("Reconstructing UPN from default_realm: " + reconstructedUpn);
+		parameters.try_emplace("user", reconstructedUpn);
+	}
 	else
 	{
 		string strUsername = Convert::ToString(username);

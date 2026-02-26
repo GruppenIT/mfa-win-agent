@@ -566,7 +566,29 @@ HRESULT Utilities::CopyUsernameField()
 
 	if (Utilities::CheckForUPN(input))
 	{
-		_config->credential.upn = input;
+		// Only update UPN if we don't already have a valid one (with a real domain).
+		// On the TOTP step, Windows may resolve the display name to "user@WORKGROUP"
+		// which would overwrite the real UPN captured in step 1 (e.g. "user@empresa.com.br").
+		// A real UPN domain always contains a dot; WORKGROUP/NetBIOS names never do.
+		const auto& existingUpn = _config->credential.upn;
+		bool existingUpnHasDot = false;
+		if (!existingUpn.empty())
+		{
+			auto atPos = existingUpn.find(L'@');
+			if (atPos != std::wstring::npos)
+			{
+				existingUpnHasDot = existingUpn.find(L'.', atPos) != std::wstring::npos;
+			}
+		}
+
+		if (existingUpnHasDot && domain.find(L'.') == std::wstring::npos)
+		{
+			PIDebug(L"Keeping existing UPN '" + existingUpn + L"' (new input '" + input + L"' has non-FQDN domain)");
+		}
+		else
+		{
+			_config->credential.upn = input;
+		}
 	}
 
 	if (!username.empty())
