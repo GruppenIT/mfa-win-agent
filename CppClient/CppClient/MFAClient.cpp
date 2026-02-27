@@ -178,13 +178,41 @@ HRESULT MFAClient::ValidateCheck(
 		// User originally typed a UPN (upn param is non-empty, e.g. "rodrigo@WORKGROUP")
 		// but it was non-FQDN (effectiveUpn was cleared above).
 		// Reconstruct from username + default_realm.
-		// NOTE: If upn is EMPTY, user typed a plain username (e.g. "teste")
-		// — this is a local account, send just the username without reconstruction.
 		string strUsername = Convert::ToString(username);
 		string strRealm = Convert::ToString(_config.defaultRealm);
 		string reconstructedUpn = strUsername + "@" + strRealm;
 		PIDebug("Reconstructing UPN from default_realm: " + reconstructedUpn);
 		parameters.try_emplace("user", reconstructedUpn);
+	}
+	else if (_config.sendUPN && upn.empty() && !_config.defaultRealm.empty()
+		&& _config.defaultRealm.find(L'.') != std::wstring::npos)
+	{
+		// Plain username (no UPN) on a cloud-configured machine.
+		// When send_upn=true and default_realm is an FQDN, reconstruct UPN
+		// from username + default_realm. This allows typing just "rodrigo"
+		// on AAD-joined machines configured with default_realm=gruppen.com.br.
+		// Users typing ".\teste" will have domain set to computer name,
+		// which is handled in the else branch below.
+		string strDomain = Convert::ToString(domain);
+		bool hasExplicitLocalDomain = (!strDomain.empty()
+			&& strDomain != "WORKGROUP"
+			&& strDomain.find('.') == std::string::npos);
+
+		if (!hasExplicitLocalDomain)
+		{
+			string strUsername = Convert::ToString(username);
+			string strRealm = Convert::ToString(_config.defaultRealm);
+			string reconstructedUpn = strUsername + "@" + strRealm;
+			PIDebug("Plain username on cloud machine, reconstructing UPN: " + reconstructedUpn);
+			parameters.try_emplace("user", reconstructedUpn);
+		}
+		else
+		{
+			string strUsername = Convert::ToString(username);
+			PIDebug("Local domain prefix detected, sending plain username: " + strUsername);
+			parameters.try_emplace("user", strUsername);
+			AppendRealm(domain, parameters);
+		}
 	}
 	else
 	{

@@ -1543,6 +1543,28 @@ HRESULT CCredential::GetSerialization(
 					isCloudAccount = true;
 				}
 
+				// Plain username (no UPN) on a cloud-configured machine.
+				// When send_upn=true and default_realm is an FQDN, assume plain usernames
+				// are cloud accounts. This matches native Windows behavior on AAD-joined
+				// machines where typing just "rodrigo" defaults to Azure AD.
+				// Users can force local auth by typing ".\username" or "COMPUTERNAME\username".
+				if (!isCloudAccount && upn.empty() && _config->piconfig.sendUPN
+					&& !_config->piconfig.defaultRealm.empty()
+					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
+				{
+					const auto& dom = _config->credential.domain;
+					bool hasExplicitLocalDomain = (!dom.empty()
+						&& dom != L"WORKGROUP"
+						&& dom.find(L'.') == std::wstring::npos
+						&& _wcsicmp(dom.c_str(), _config->piconfig.defaultRealm.c_str()) != 0);
+
+					if (!hasExplicitLocalDomain)
+					{
+						PIDebug(L"Plain username on cloud-configured machine: treating as cloud account");
+						isCloudAccount = true;
+					}
+				}
+
 				if (isCloudAccount)
 				{
 					// Azure AD / Entra ID account: use KerberosLogon with explicit

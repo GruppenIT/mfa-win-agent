@@ -460,6 +460,31 @@ HRESULT CProvider::GetCredentialAt(
 					serializedDomain = nullptr;
 				}
 			}
+
+			// On AAD-joined machines, WTS provides a plain username (e.g. "rodrigo")
+			// and domain "WORKGROUP". When cloud config is active (send_upn + default_realm),
+			// reconstruct the full UPN so the user sees "rodrigo@gruppen.com.br" pre-filled
+			// on the unlock screen, and the auth flow recognizes it as a cloud account.
+			if (serializedUser != nullptr && _config->piconfig.sendUPN
+				&& !_config->piconfig.defaultRealm.empty()
+				&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
+			{
+				std::wstring wtsUser(serializedUser);
+				// Only reconstruct if WTS user is plain (no @ or \)
+				if (wtsUser.find(L'@') == std::wstring::npos
+					&& wtsUser.find(L'\\') == std::wstring::npos)
+				{
+					std::wstring fullUpn = wtsUser + L"@" + _config->piconfig.defaultRealm;
+					PIDebug(L"Unlock: reconstructing UPN for pre-fill: " + fullUpn);
+					// Allocate new string for the UPN (WTSFreeMemory will free the old one)
+					PWSTR newUser = nullptr;
+					if (SUCCEEDED(SHStrDupW(fullUpn.c_str(), &newUser)))
+					{
+						WTSFreeMemory(serializedUser);
+						serializedUser = newUser;
+					}
+				}
+			}
 		}
 		else if (cpus == CPUS_LOGON || cpus == CPUS_CREDUI)
 		{
