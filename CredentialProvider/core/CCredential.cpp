@@ -1523,15 +1523,12 @@ HRESULT CCredential::GetSerialization(
 
 			if (useCredPack)
 			{
-				// Determine the username to pass to CredPackAuthenticationBufferW.
-				// For cloud accounts, we need the full UPN (user@domain.com)
-				// so Windows routes to the correct auth provider (CloudAP/NGC).
-				std::wstring credUsername = _config->credential.username;
-				std::wstring credDomain = _config->credential.domain;
-
-				// Use UPN if available and valid (has FQDN domain)
+				// Determine how to authenticate.
+				// For cloud accounts (UPN format), check if we have the original
+				// username and domain split from CopyUsernameField.
 				const auto& upn = _config->credential.upn;
 				bool upnHasFqdn = false;
+				bool isCloudAccount = false;
 				if (!upn.empty())
 				{
 					auto atPos = upn.find(L'@');
@@ -1539,37 +1536,72 @@ HRESULT CCredential::GetSerialization(
 						&& upn.find(L'.', atPos) != std::wstring::npos);
 				}
 
-				if (upnHasFqdn)
+				if (upnHasFqdn || (!upn.empty() && _config->piconfig.sendUPN
+					&& !_config->piconfig.defaultRealm.empty()
+					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos))
 				{
-					// UPN is valid (e.g. rodrigo@empresa.com.br from step 1)
-					PIDebug(L"CredPack with UPN: " + upn);
-					credUsername = upn;
-					credDomain = L"";
+					isCloudAccount = true;
 				}
-				else if (!upn.empty() && _config->piconfig.sendUPN
+
+				// Plain username (no UPN) on a cloud-configured machine.
+				// When send_upn=true and default_realm is an FQDN, assume plain usernames
+				// are cloud accounts. This matches native Windows behavior on AAD-joined
+				// machines where typing just "rodrigo" defaults to Azure AD.
+				// Users can force local auth by typing ".\username" or "COMPUTERNAME\username".
+				if (!isCloudAccount && upn.empty() && _config->piconfig.sendUPN
 					&& !_config->piconfig.defaultRealm.empty()
 					&& _config->piconfig.defaultRealm.find(L'.') != std::wstring::npos)
 				{
-					// User originally typed a UPN (upn is non-empty, e.g. "rodrigo@WORKGROUP")
-					// but the domain is non-FQDN (Windows overwrote it on step 2).
-					// Reconstruct from username + default_realm.
-					// NOTE: If upn is EMPTY, user typed a plain username (e.g. "teste")
-					// — this is a local account, do NOT reconstruct.
-					std::wstring reconstructed = _config->credential.username
-						+ L"@" + _config->piconfig.defaultRealm;
-					PIDebug(L"CredPack with reconstructed UPN: " + reconstructed);
-					credUsername = reconstructed;
-					credDomain = L"";
+					const auto& dom = _config->credential.domain;
+					bool hasExplicitLocalDomain = (!dom.empty()
+						&& dom != L"WORKGROUP"
+						&& dom.find(L'.') == std::wstring::npos
+						&& _wcsicmp(dom.c_str(), _config->piconfig.defaultRealm.c_str()) != 0);
+
+					if (!hasExplicitLocalDomain)
+					{
+						PIDebug(L"Plain username on cloud-configured machine: treating as cloud account");
+						isCloudAccount = true;
+					}
+				}
+
+				if (isCloudAccount)
+				{
+					// Azure AD / Entra ID account: use KerberosLogon with explicit
+					// domain as the Kerberos realm. On AAD-joined machines with Cloud
+					// Kerberos Trust (CloudTgt=YES), Negotiate/Kerberos can reach
+					// Azure AD's Cloud KDC for the domain realm.
+					//
+					// This is different from CredPack which sends domain="" + full UPN,
+					// causing Kerberos to not know which realm to use.
+					//
+					// credential.username = "rodrigo" (split from UPN by CopyUsernameField)
+					// credential.domain   = "gruppen.com.br" (split from UPN)
+					// → Kerberos realm = "GRUPPEN.COM.BR" → Cloud KDC → Azure AD auth
+					std::wstring kerbDomain = _config->credential.domain;
+					std::wstring kerbUsername = _config->credential.username;
+
+					// If domain was overwritten (e.g. WORKGROUP), use default_realm
+					if (kerbDomain.empty() || kerbDomain.find(L'.') == std::wstring::npos)
+					{
+						kerbDomain = _config->piconfig.defaultRealm;
+					}
+
+					PIDebug(L"Cloud account: KerberosLogon with user=" + kerbUsername
+						+ L" domain=" + kerbDomain + L" (Cloud Kerberos Trust)");
+
+					hr = _util.KerberosLogon(pcpgsr, pcpcs, _config->provider.cpu,
+						kerbUsername, _config->credential.password, kerbDomain);
 				}
 				else
 				{
-					// Plain username (local/domain account) — pass as-is.
-					// CredPackAuthentication will create DOMAIN\username format.
-					PIDebug(L"CredPack with local username: " + credUsername + L" domain: " + credDomain);
+					// Local/domain account: use CredPack + Negotiate
+					std::wstring credUsername = _config->credential.username;
+					std::wstring credDomain = _config->credential.domain;
+					PIDebug(L"Local account: CredPack with user=" + credUsername + L" domain=" + credDomain);
+					hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
+						credUsername, _config->credential.password, credDomain);
 				}
-
-				hr = _util.CredPackAuthentication(pcpgsr, pcpcs, _config->provider.cpu,
-					credUsername, _config->credential.password, credDomain);
 			}
 			else
 			{

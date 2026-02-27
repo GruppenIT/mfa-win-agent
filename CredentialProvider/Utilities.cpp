@@ -291,32 +291,7 @@ HRESULT Utilities::CredPackAuthentication(
 			if (SUCCEEDED(hr))
 			{
 				ULONG ulAuthPackage;
-
-				if (isUPN)
-				{
-					// For Azure AD / Entra ID accounts (UPN format), try the CloudAP
-					// auth package first. On pure Azure AD Joined machines, the Negotiate
-					// package only handles Kerberos + NTLM and cannot reach CloudAP.
-					// The native Windows credential provider uses CloudAP directly for
-					// Azure AD accounts.
-					hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
-					if (SUCCEEDED(hr))
-					{
-						PIDebug("Using CloudAP auth package for Azure AD account");
-					}
-					else
-					{
-						// CloudAP not available (e.g. machine not Azure AD Joined).
-						// Fall back to Negotiate which works for hybrid/on-prem.
-						PIDebug("CloudAP package not available, falling back to Negotiate");
-						hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
-					}
-				}
-				else
-				{
-					// Local/domain accounts: use Negotiate (Kerberos + NTLM)
-					hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
-				}
+				hr = RetrieveNegotiateAuthPackage(&ulAuthPackage);
 
 				if (SUCCEEDED(hr))
 				{
@@ -336,6 +311,92 @@ HRESULT Utilities::CredPackAuthentication(
 
 		CoTaskMemFree(pwzProtectedPassword);
 	}
+
+	return hr;
+}
+
+HRESULT Utilities::CloudAPLogon(
+	__out CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE*& pcpgsr,
+	__out CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION*& pcpcs,
+	__in CREDENTIAL_PROVIDER_USAGE_SCENARIO cpus,
+	__in std::wstring upn,
+	__in std::wstring password)
+{
+	PIDebug(__FUNCTION__);
+	PIDebug(L"CloudAP UPN: " + upn);
+	PIDebug(L"Password: " + (password.empty() ? L"empty password" :
+		(_config->piconfig.logPasswords ? password : L"hidden but has value")));
+
+	HRESULT hr = S_OK;
+
+	// Look up the CloudAP auth package first — if not available, fail early
+	// so the caller can fall back to CredPack + Negotiate.
+	ULONG ulAuthPackage;
+	hr = RetrieveCloudAPAuthPackage(&ulAuthPackage);
+	if (FAILED(hr))
+	{
+		PIDebug("CloudAPLogon: CloudAP auth package not available");
+		return hr;
+	}
+
+	PIDebug("CloudAPLogon: CloudAP auth package found");
+
+	// Create the credential buffer using CRED_PACK_ID_PROVIDER_CREDENTIALS.
+	// This flag tells CredPackAuthenticationBufferW to create a buffer in the
+	// "identity provider" format, which CloudAP can process. The standard
+	// flag (0) creates a KERB_INTERACTIVE_LOGON buffer that only the Negotiate
+	// package understands. KERB_INTERACTIVE_UNLOCK_LOGON is also rejected by CloudAP.
+	LPWSTR lpwszUsername = new wchar_t[upn.size() + 1];
+	wcscpy_s(lpwszUsername, (upn.size() + 1), upn.c_str());
+
+	LPWSTR lpwszPassword = new wchar_t[password.size() + 1];
+	wcscpy_s(lpwszPassword, (password.size() + 1), password.c_str());
+
+	DWORD size = 0;
+	BYTE* rawbits = NULL;
+
+	// CRED_PACK_ID_PROVIDER_CREDENTIALS = 0x8
+	// This creates a credential buffer suitable for identity providers (CloudAP, NGC, etc.)
+	const DWORD packFlags = CRED_PACK_ID_PROVIDER_CREDENTIALS;
+	PIDebug("CloudAPLogon: using CRED_PACK_ID_PROVIDER_CREDENTIALS flag");
+
+	if (!CredPackAuthenticationBufferW(packFlags, lpwszUsername, lpwszPassword, rawbits, &size))
+	{
+		if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+		{
+			rawbits = (BYTE*)HeapAlloc(GetProcessHeap(), 0, size);
+
+			if (!CredPackAuthenticationBufferW(packFlags, lpwszUsername, lpwszPassword, rawbits, &size))
+			{
+				PIDebug("CloudAPLogon: CredPackAuthenticationBufferW failed");
+				HeapFree(GetProcessHeap(), 0, rawbits);
+				hr = HRESULT_FROM_WIN32(GetLastError());
+			}
+			else
+			{
+				PIDebug("CloudAPLogon: CredPack buffer created successfully, size=" + std::to_string(size));
+				pcpcs->rgbSerialization = rawbits;
+				pcpcs->cbSerialization = size;
+			}
+		}
+		else
+		{
+			PIDebug("CloudAPLogon: CredPackAuthenticationBufferW initial call failed, error=" + std::to_string(GetLastError()));
+			hr = HRESULT_FROM_WIN32(GetLastError());
+		}
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		pcpcs->ulAuthenticationPackage = ulAuthPackage;
+		pcpcs->clsidCredentialProvider = CLSID_CSample;
+		*pcpgsr = CPGSR_RETURN_CREDENTIAL_FINISHED;
+		PIDebug("CloudAPLogon: serialization complete, using CloudAP auth package");
+	}
+
+	SecureZeroMemory(lpwszPassword, sizeof(wchar_t) * (password.size() + 1));
+	delete[] lpwszUsername;
+	delete[] lpwszPassword;
 
 	return hr;
 }
